@@ -14,6 +14,12 @@
   revision = "1fca145dffbcaa8fe914309b1ec0cfc67500fe61"
 
 [[projects]]
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/fatih/structs"
   packages = ["."]
   revision = "a720dfa8df582c51dee1b36feabb906bde1588bd"
@@ -81,7 +87,7 @@
 
 [[projects]]
   name = "github.com/hashicorp/vault"
-  packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/wrapping","logical","logical/plugin"]
+  packages = ["api","helper/certutil","helper/compressutil","helper/consts","helper/errutil","helper/jsonutil","helper/logformat","helper/mlock","helper/parseutil","helper/pluginutil","helper/salt","helper/strutil","helper/wrapping","logical","logical/framework","logical/plugin"]
   revision = "87b6919dea55da61d7cd444b2442cabb8ede8ab1"
   version = "v0.9.1"
 
@@ -140,10 +146,28 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/ryanuber/go-glob"
+  packages = ["."]
+  revision = "572520ed46dbddaed19ea3d9541bdd0494163693"
+  version = "v0.1"
+
+[[projects]]
   branch = "master"
   name = "github.com/sethgrid/pester"
   packages = ["."]
   revision = "760f8913c0483b776294e1bee43f1d687527127b"
+
+[[projects]]
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -178,6 +202,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7d7e741627c31916779e93b97082ba192068a3fb681f37956465de9a0576ccde"
+  inputs-digest = "9a370169c3f65a3c7b2facdf010897b7ecec39e38fd0894461e5e86f39d99bb3"
   solver-name = "gps-cdcl"
   solver-version = 1
