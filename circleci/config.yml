@@ -1,0 +1,16 @@
+version: 2.0
+jobs:
+  build:
+    docker:
+      - image: golang:1.9.2
+    steps:
+      - checkout
+      - run:
+          name: Compile Code
+          command: go build -v
+      - run:
+          name: Test Code
+          command: go test -v -coverprofile coverage.out
+      - store_artifacts:
+          path: ./coverage.out
+          destination: coverage
