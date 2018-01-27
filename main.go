@@ -27,5 +27,7 @@ func main() {
 
 // Factory constructs the plugin instance with the provided BackendConfig.
 func Factory(c *logical.BackendConfig) (logical.Backend, error) {
-	return nil, nil
+	b := Backend(c)
+
+	return b.Backend, nil
 }
