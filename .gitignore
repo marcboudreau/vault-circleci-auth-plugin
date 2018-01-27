@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+vault-circleci-auth-plugin
 
 # Test binary, build with `go test -c`
 *.test
