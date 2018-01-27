@@ -22,6 +22,14 @@ func pathConfig(b *backend) *framework.Path {
 				Default: "https://circleci.com",
 				Description: "The base URL used to construct all endpoint URLs for this plugin.",
 			},
+			"ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: "Duration of the token's lifetime, unless renewed.",
+			},
+			"max_ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: "Maximum duration of the token's lifetime.",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation: b.pathConfigRead,
@@ -86,7 +94,10 @@ func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) 
 	return nil, nil
 }
 
-func parseDurationField(fieldName string, d *framework.FieldData) (value time.Duration, err error) {
+func parseDurationField(fieldName string, d *framework.FieldData) (time.Duration, error) {
+	var value time.Duration
+	var err error
+
 	raw, ok := d.GetOk(fieldName)
 	if !ok || len(raw.(string)) == 0 {
 		value = 0
@@ -94,7 +105,7 @@ func parseDurationField(fieldName string, d *framework.FieldData) (value time.Du
 		value, err = time.ParseDuration(raw.(string))
 	}
 
-	return
+	return value, err
 }
 
 // Config reads the config object out of the provided Storage.

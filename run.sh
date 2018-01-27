@@ -8,7 +8,7 @@ GOOS=linux GOARCH=amd64 go build -o vault-circleci-auth-plugin
 
 docker rm -f vault || true
 
-docker run -d -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins"}' -v $PWD/vault-circleci-auth-plugin:/vault/plugins/vault-circleci-auth-plugin --name=vault vault:0.9.2 server -dev -dev-root-token-id=root
+docker run -d -e VAULT_ADDR=http://127.0.0.1:8200 -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins"}' -v $PWD/vault-circleci-auth-plugin:/vault/plugins/vault-circleci-auth-plugin --name=vault vault:0.9.2 server -dev -dev-root-token-id=root -log-level=trace
 
 docker exec vault vault login root
 
