@@ -3,11 +3,14 @@ package main
 import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+
+	"github.com/marcboudreau/vault-circleci-auth-plugin/circleci"
 )
 
 type backend struct {
 	*framework.Backend
 
+	client Client
 	ProjectMap *framework.PolicyMap
 }
 
@@ -31,4 +34,13 @@ func Backend(c *logical.BackendConfig) *backend {
 	b.Backend.Setup(c)
 
 	return &b
+}
+
+func (b *backend) GetClient(token string) Client {
+	if b.client == nil {
+		b.client = circleci.New(token)
+		
+	}
+
+	return b.client
 }
