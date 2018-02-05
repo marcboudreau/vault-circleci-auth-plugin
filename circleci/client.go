@@ -22,8 +22,8 @@ func New(token string) *Client {
 }
 
 // GetBuild ...
-func (c *Client) GetBuild(user, project string, buildNum int) (*circleci.Build, error) {
-	return c.c.GetBuild(user, project, buildNum)
+func (c *Client) GetBuild(vcsType, user, project string, buildNum int) (*circleci.Build, error) {
+	return c.c.GetBuild(vcsType, user, project, buildNum)
 }
 
 // SetBaseURL ...

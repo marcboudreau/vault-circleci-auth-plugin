@@ -13,19 +13,19 @@ func pathLogin(b *backend) *framework.Path {
 		Pattern: "login",
 		Fields: map[string]*framework.FieldSchema{
 			"user": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "The owner of the build's repository.",
 			},
 			"project": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "The name of the build's repository.",
 			},
 			"build_num": &framework.FieldSchema{
-				Type: framework.TypeInt,
+				Type:        framework.TypeInt,
 				Description: "The number of the current build.",
 			},
 			"vcs_revision": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "The hash of the current build's source control revision.",
 			},
 		},
@@ -36,13 +36,14 @@ func pathLogin(b *backend) *framework.Path {
 }
 
 func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	vcsType := d.Get("vcs_type").(string)
 	user := d.Get("user").(string)
 	project := d.Get("project").(string)
 	buildNum := d.Get("build_num").(int)
 	vcsRevision := d.Get("vcs_revision").(string)
 
 	var verifyResp *verifyBuildResponse
-	if verifyResponse, resp, err := b.verifyBuild(req, user, project, buildNum, vcsRevision); err != nil {
+	if verifyResponse, resp, err := b.verifyBuild(req, vcsType, user, project, buildNum, vcsRevision); err != nil {
 		return nil, err
 	} else if resp != nil {
 		return resp, nil
@@ -62,16 +63,17 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 
 	resp := &logical.Response{
 		Auth: &logical.Auth{
-			InternalData: map[string]interface{} {
-				"user": user,
-				"project": project,
-				"build_num": buildNum,
+			InternalData: map[string]interface{}{
+				"vcs_type":     vcsType,
+				"user":         user,
+				"project":      project,
+				"build_num":    buildNum,
 				"vcs_revision": vcsRevision,
 			},
-			Policies: verifyResp.Policies,
+			Policies:    verifyResp.Policies,
 			DisplayName: fmt.Sprintf("%s-%d", project, buildNum),
 			LeaseOptions: logical.LeaseOptions{
-				TTL: ttl,
+				TTL:       ttl,
 				Renewable: true,
 			},
 		},
@@ -80,7 +82,7 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	return resp, nil
 }
 
-func (b *backend) verifyBuild(req *logical.Request, user, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
+func (b *backend) verifyBuild(req *logical.Request, vcsType, user, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
 	config, err := b.Config(req.Storage)
 	if err != nil {
 		return nil, nil, err
@@ -101,7 +103,7 @@ func (b *backend) verifyBuild(req *logical.Request, user, project string, buildN
 		client.SetBaseURL(parsedURL)
 	}
 
-	build, err := client.GetBuild(user, project, buildNum)
+	build, err := client.GetBuild(vcsType, user, project, buildNum)
 	if err != nil {
 		return nil, nil, err
 	}
