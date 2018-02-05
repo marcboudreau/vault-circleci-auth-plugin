@@ -29,6 +29,9 @@ func pathLogin(b *backend) *framework.Path {
 				Description: "The hash of the current build's source control revision.",
 			},
 		},
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.UpdateOperation: b.pathLogin,
+		},
 	}
 }
 

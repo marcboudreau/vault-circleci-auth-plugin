@@ -3,7 +3,7 @@ package circleci
 import (
 	"net/url"
 
-	"github.com/jszwedko/go-circleci"
+	circleci "github.com/tylux/go-circleci"
 )
 
 // Client is an implementation of the Client interface that actually sends

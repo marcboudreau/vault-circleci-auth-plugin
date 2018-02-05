@@ -3,14 +3,14 @@ package mock
 import (
 	"net/url"
 
-	"github.com/jszwedko/go-circleci"
+	circleci "github.com/tylux/go-circleci"
 )
 
 // Client is an implementation of the Client interface that mocks out calls to the
 // CircleCI API.
 type Client struct {
 	Build *circleci.Build
-	Err error
+	Err   error
 }
 
 // GetBuild ...

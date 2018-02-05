@@ -5,10 +5,10 @@ import (
 	"net/url"
 	"os"
 
-	circleci "github.com/jszwedko/go-circleci"
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/plugin"
+	circleci "github.com/tylux/go-circleci"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	flags.Parse(os.Args[1:])
 
 	tlsConfig := apiClientMeta.GetTLSConfig()
-  	tlsProviderFunc := pluginutil.VaultPluginTLSProvider(tlsConfig)
+	tlsProviderFunc := pluginutil.VaultPluginTLSProvider(tlsConfig)
 
 	if err := plugin.Serve(&plugin.ServeOpts{
 		BackendFactoryFunc: Factory,
