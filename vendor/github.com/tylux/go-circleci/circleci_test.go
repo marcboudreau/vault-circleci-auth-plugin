@@ -291,28 +291,6 @@ func TestClient_GetProject_noMatching(t *testing.T) {
 	}
 }
 
-func TestClient_GetProject_urlDecodeBranches(t *testing.T) {
-	setup()
-	defer teardown()
-	mux.HandleFunc("/projects", func(w http.ResponseWriter, r *http.Request) {
-		testMethod(t, r, "GET")
-		// using Fprintf instead Fprint becouse `go vet` complains about a possible intention to use a formatted string
-		fmt.Fprintf(w, `[
-			{"username": "jszwedko", "reponame": "bar", "branches": {"apiv1%%2E1": {}}}
-		]`)
-	})
-
-	project, err := client.GetProject("jszwedko", "bar")
-	if err != nil {
-		t.Errorf("Client.GetProject returned error: %v", err)
-	}
-
-	_, ok := project.Branches["apiv1.1"]
-	if !ok {
-		t.Errorf("expected Client.GetProject(%+v, %+v) to return branches containing 'apiv1.1'  got %+v", "jszwedko", "foo", project.Branches)
-	}
-}
-
 func TestClient_recentBuilds_multiPage(t *testing.T) {
 	setup()
 	defer teardown()
@@ -535,31 +513,6 @@ func TestClient_Build(t *testing.T) {
 	})
 
 	build, err := client.Build("jszwedko", "foo", "master")
-	if err != nil {
-		t.Errorf("Client.Build(jszwedko, foo, master) returned error: %v", err)
-	}
-
-	want := &Build{BuildNum: 123}
-	if !reflect.DeepEqual(build, want) {
-		t.Errorf("Client.Build(jszwedko, foo, master) returned %+v, want %+v", build, want)
-	}
-}
-
-func TestClient_ParameterizedBuild(t *testing.T) {
-	setup()
-	defer teardown()
-
-	mux.HandleFunc("/project/jszwedko/foo/tree/master", func(w http.ResponseWriter, r *http.Request) {
-		testBody(t, r, `{"param":"foo"}`)
-		testMethod(t, r, "POST")
-		fmt.Fprint(w, `{"build_num": 123}`)
-	})
-
-	params := map[string]string{
-		"param": "foo",
-	}
-
-	build, err := client.ParameterizedBuild("jszwedko", "foo", "master", params)
 	if err != nil {
 		t.Errorf("Client.Build(jszwedko, foo, master) returned error: %v", err)
 	}
