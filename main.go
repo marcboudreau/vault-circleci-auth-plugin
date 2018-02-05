@@ -36,6 +36,6 @@ func Factory(c *logical.BackendConfig) (logical.Backend, error) {
 
 // Client is the interface for clients used to talk to the CircleCI API.
 type Client interface {
-	GetBuild(user, project string, buildNum int) (*circleci.Build, error)
+	GetBuild(vcsType, user, project string, buildNum int) (*circleci.Build, error)
 	SetBaseURL(baseURL *url.URL)
 }

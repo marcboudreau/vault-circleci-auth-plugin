@@ -10,7 +10,7 @@ import (
 type backend struct {
 	*framework.Backend
 
-	client Client
+	client     Client
 	ProjectMap *framework.PolicyMap
 }
 
@@ -28,7 +28,7 @@ func Backend(c *logical.BackendConfig) *backend {
 	allPaths := append(b.ProjectMap.Paths(), pathConfig(&b), pathLogin(&b))
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeCredential,
-		Paths: allPaths,
+		Paths:       allPaths,
 	}
 
 	b.Backend.Setup(c)
@@ -39,7 +39,7 @@ func Backend(c *logical.BackendConfig) *backend {
 func (b *backend) GetClient(token string) Client {
 	if b.client == nil {
 		b.client = circleci.New(token)
-		
+
 	}
 
 	return b.client

@@ -15,6 +15,7 @@ func TestVerifyBuild(t *testing.T) {
 	testcases := []struct {
 		Backend     *backend
 		Req         *logical.Request
+		VCSType     string
 		User        string
 		Project     string
 		BuildNum    int
@@ -28,6 +29,7 @@ func TestVerifyBuild(t *testing.T) {
 			Req: &logical.Request{
 				Storage: &GetErrorStorage{},
 			},
+			VCSType:     "github",
 			User:        "u",
 			Project:     "p",
 			BuildNum:    1,
@@ -39,6 +41,7 @@ func TestVerifyBuild(t *testing.T) {
 			Req: &logical.Request{
 				Storage: &GetValidStorage{},
 			},
+			VCSType:        "github",
 			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
@@ -64,6 +67,7 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
+			VCSType:        "github",
 			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
@@ -89,6 +93,7 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
+			VCSType:        "github",
 			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
@@ -110,6 +115,7 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
+			VCSType:     "github",
 			User:        "u",
 			Project:     "p",
 			BuildNum:    1,
@@ -135,6 +141,7 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
+			VCSType:        "github",
 			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
@@ -160,6 +167,7 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
+			VCSType:        "github",
 			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
@@ -169,7 +177,7 @@ func TestVerifyBuild(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		verifyResponse, resp, err := tc.Backend.verifyBuild(tc.Req, tc.User, tc.Project, tc.BuildNum, tc.VCSRevision)
+		verifyResponse, resp, err := tc.Backend.verifyBuild(tc.Req, tc.VCSType, tc.User, tc.Project, tc.BuildNum, tc.VCSRevision)
 		if tc.ExpectError {
 			assert.NotNil(t, err)
 			assert.Nil(t, verifyResponse)
