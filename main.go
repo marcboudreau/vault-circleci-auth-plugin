@@ -1,9 +1,10 @@
 package main
 
 import (
-	"log"
 	"net/url"
 	"os"
+
+	"log"
 
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical"
@@ -36,6 +37,6 @@ func Factory(c *logical.BackendConfig) (logical.Backend, error) {
 
 // Client is the interface for clients used to talk to the CircleCI API.
 type Client interface {
-	GetBuild(vcsType, user, project string, buildNum int) (*circleci.Build, error)
+	GetBuild(project string, buildNum int) (*circleci.Build, error)
 	SetBaseURL(baseURL *url.URL)
 }

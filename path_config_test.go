@@ -40,7 +40,7 @@ type GetInvalidJSONStorage struct {
 
 func (s GetInvalidJSONStorage) Get(path string) (*logical.StorageEntry, error) {
 	return &logical.StorageEntry{
-		Key: "config",
+		Key:   "config",
 		Value: []byte("bad{json,is what I need"),
 	}, nil
 }
@@ -49,7 +49,7 @@ func TestConfigReturnValid(t *testing.T) {
 	var b backend
 	config, err := b.Config(GetValidStorage{
 		Entry: &logical.StorageEntry{
-			Key: "config",
+			Key:   "config",
 			Value: []byte("{\"circleci_token\": \"test-token\", \"ttl\": 300, \"max_ttl\": 900}"),
 		},
 	})
@@ -76,37 +76,37 @@ func TestParseDurationField(t *testing.T) {
 	garbage := "garbage"
 	blank := ""
 
-	testcases := []struct{
+	testcases := []struct {
 		valueReturned *string
-		expectError bool
+		expectError   bool
 		expectedValue time.Duration
-	} {
+	}{
 		{
 			valueReturned: &oneSecond,
-			expectError: false,
+			expectError:   false,
 			expectedValue: time.Second,
 		},
 		{
 			valueReturned: &oneDay,
-			expectError: true,
+			expectError:   true,
 		},
 		{
 			valueReturned: &garbage,
-			expectError: true,
+			expectError:   true,
 		},
 		{
 			valueReturned: &blank,
-			expectError: false,
+			expectError:   false,
 			expectedValue: 0,
 		},
 	}
 
 	for _, tc := range testcases {
 		d := &framework.FieldData{
-			Raw: map[string]interface{} {
+			Raw: map[string]interface{}{
 				"key": *tc.valueReturned,
 			},
-			Schema: map[string]*framework.FieldSchema {
+			Schema: map[string]*framework.FieldSchema{
 				"key": &framework.FieldSchema{
 					Type: framework.TypeString,
 				},
@@ -126,28 +126,30 @@ func TestParseDurationField(t *testing.T) {
 
 func TestPathConfigRead(t *testing.T) {
 	var b backend
-	testcases := []struct{
-		storage logical.Storage
-		expectError bool
+	testcases := []struct {
+		storage      logical.Storage
+		expectError  bool
 		expectedData map[string]interface{}
-	} {
+	}{
 		{
-			storage: GetErrorStorage{},
+			storage:     GetErrorStorage{},
 			expectError: true,
 		},
 		{
 			storage: GetValidStorage{
 				Entry: &logical.StorageEntry{
-					Key: "config",
-					Value: []byte("{\"circleci_token\":\"test-token\",\"base_url\":\"https://test.circleci.com\", \"ttl\":300000000000, \"max_ttl\":900000000000}"),
+					Key:   "config",
+					Value: []byte("{\"circleci_token\":\"test-token\",\"base_url\":\"https://test.circleci.com\", \"ttl\":300000000000, \"max_ttl\":900000000000,\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
 				},
 			},
 			expectError: false,
-			expectedData: map[string]interface{} {
+			expectedData: map[string]interface{}{
 				"circleci_token": "test-token",
-				"base_url": "https://test.circleci.com",
-				"ttl": time.Duration(300),
-				"max_ttl": time.Duration(900),
+				"base_url":       "https://test.circleci.com",
+				"ttl":            time.Duration(300),
+				"max_ttl":        time.Duration(900),
+				"vcs_type":       "github",
+				"owner":          "fred",
 			},
 		},
 	}
@@ -163,26 +165,28 @@ func TestPathConfigRead(t *testing.T) {
 			assert.NotNil(t, resp)
 			for k, v := range tc.expectedData {
 				assert.Equal(t, v, resp.Data[k])
-			}			
+			}
 		}
 	}
 }
 
 func TestPathConfigWrite(t *testing.T) {
 	var b backend
-	testcases := []struct{
-		fieldData *framework.FieldData
-		reqStorage logical.Storage
-		expectError bool
-		expectErrorResponse bool	
-	} {
-		{ 
+	testcases := []struct {
+		fieldData           *framework.FieldData
+		reqStorage          logical.Storage
+		expectError         bool
+		expectErrorResponse bool
+	}{
+		{
 			fieldData: &framework.FieldData{
-				Raw: map[string]interface{} {
+				Raw: map[string]interface{}{
 					"circleci_token": "test-token",
-					"base_url": "https://bad#m=%",
-					"ttl": "5s",
-					"max_ttl": "15s",
+					"base_url":       "https://bad#m=%",
+					"ttl":            "5s",
+					"max_ttl":        "15s",
+					"vcs_type":       "github",
+					"owner":          "fred",
 				},
 				Schema: map[string]*framework.FieldSchema{
 					"circleci_token": &framework.FieldSchema{
@@ -195,6 +199,12 @@ func TestPathConfigWrite(t *testing.T) {
 						Type: framework.TypeString,
 					},
 					"max_ttl": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"vcs_type": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"owner": &framework.FieldSchema{
 						Type: framework.TypeString,
 					},
 				},
@@ -203,11 +213,13 @@ func TestPathConfigWrite(t *testing.T) {
 		},
 		{
 			fieldData: &framework.FieldData{
-				Raw: map[string]interface{} {
+				Raw: map[string]interface{}{
 					"circleci_token": "test-token",
-					"base_url": "https://test.circleci.com",
-					"ttl": "5s",
-					"max_ttl": "15s",
+					"base_url":       "https://test.circleci.com",
+					"ttl":            "5s",
+					"max_ttl":        "15s",
+					"vcs_type":       "github",
+					"owner":          "fred",
 				},
 				Schema: map[string]*framework.FieldSchema{
 					"circleci_token": &framework.FieldSchema{
@@ -220,20 +232,28 @@ func TestPathConfigWrite(t *testing.T) {
 						Type: framework.TypeString,
 					},
 					"max_ttl": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"vcs_type": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"owner": &framework.FieldSchema{
 						Type: framework.TypeString,
 					},
 				},
 			},
-			reqStorage: &PutErrorStorage{},
+			reqStorage:  &PutErrorStorage{},
 			expectError: true,
 		},
 		{
 			fieldData: &framework.FieldData{
-				Raw: map[string]interface{} {
+				Raw: map[string]interface{}{
 					"circleci_token": "test-token",
-					"base_url": "https://test.circleci.com",
-					"ttl": "5s",
-					"max_ttl": "15s",
+					"base_url":       "https://test.circleci.com",
+					"ttl":            "5s",
+					"max_ttl":        "15s",
+					"vcs_type":       "github",
+					"owner":          "fred",
 				},
 				Schema: map[string]*framework.FieldSchema{
 					"circleci_token": &framework.FieldSchema{
@@ -246,6 +266,12 @@ func TestPathConfigWrite(t *testing.T) {
 						Type: framework.TypeString,
 					},
 					"max_ttl": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"vcs_type": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+					"owner": &framework.FieldSchema{
 						Type: framework.TypeString,
 					},
 				},

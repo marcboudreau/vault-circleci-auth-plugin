@@ -14,7 +14,7 @@ type Client struct {
 }
 
 // GetBuild ...
-func (c *Client) GetBuild(vcsType, user, project string, buildNum int) (*circleci.Build, error) {
+func (c *Client) GetBuild(project string, buildNum int) (*circleci.Build, error) {
 	return c.Build, c.Err
 }
 

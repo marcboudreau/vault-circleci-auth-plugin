@@ -29,8 +29,6 @@ func TestVerifyBuild(t *testing.T) {
 			Req: &logical.Request{
 				Storage: &GetErrorStorage{},
 			},
-			VCSType:     "github",
-			User:        "u",
 			Project:     "p",
 			BuildNum:    1,
 			VCSRevision: "r",
@@ -41,8 +39,6 @@ func TestVerifyBuild(t *testing.T) {
 			Req: &logical.Request{
 				Storage: &GetValidStorage{},
 			},
-			VCSType:        "github",
-			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
 			VCSRevision:    "r",
@@ -63,12 +59,10 @@ func TestVerifyBuild(t *testing.T) {
 				Storage: &GetValidStorage{
 					Entry: &logical.StorageEntry{
 						Key:   "config",
-						Value: []byte("{\"circleci_token\": \"fake-token\"}"),
+						Value: []byte("{\"circleci_token\": \"fake-token\",\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
 					},
 				},
 			},
-			VCSType:        "github",
-			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
 			VCSRevision:    "r",
@@ -89,12 +83,58 @@ func TestVerifyBuild(t *testing.T) {
 				Storage: &GetValidStorage{
 					Entry: &logical.StorageEntry{
 						Key:   "config",
-						Value: []byte("{\"circleci_token\":\"fake-token\",\"base_url\":\"https://circleci.com\"}"),
+						Value: []byte("{\"circleci_token\": \"fake-token\",\"vcs_type\":\"github\"}"),
 					},
 				},
 			},
-			VCSType:        "github",
-			User:           "u",
+			Project:        "p",
+			BuildNum:       1,
+			VCSRevision:    "r",
+			ExpectResponse: true,
+		},
+		{
+			Backend: &backend{
+				client: &mock.Client{
+					Build: &circleci.Build{
+						Lifecycle:   "running",
+						VcsRevision: "r",
+					},
+					Err: nil,
+				},
+				ProjectMap: &framework.PolicyMap{},
+			},
+			Req: &logical.Request{
+				Storage: &GetValidStorage{
+					Entry: &logical.StorageEntry{
+						Key:   "config",
+						Value: []byte("{\"circleci_token\": \"fake-token\",\"owner\":\"fred\"}"),
+					},
+				},
+			},
+			Project:        "p",
+			BuildNum:       1,
+			VCSRevision:    "r",
+			ExpectResponse: true,
+		},
+		{
+			Backend: &backend{
+				client: &mock.Client{
+					Build: &circleci.Build{
+						Lifecycle:   "running",
+						VcsRevision: "r",
+					},
+					Err: nil,
+				},
+				ProjectMap: &framework.PolicyMap{},
+			},
+			Req: &logical.Request{
+				Storage: &GetValidStorage{
+					Entry: &logical.StorageEntry{
+						Key:   "config",
+						Value: []byte("{\"circleci_token\":\"fake-token\",\"base_url\":\"https://circleci.com\",\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
+					},
+				},
+			},
 			Project:        "p",
 			BuildNum:       1,
 			VCSRevision:    "r",
@@ -111,12 +151,10 @@ func TestVerifyBuild(t *testing.T) {
 				Storage: &GetValidStorage{
 					Entry: &logical.StorageEntry{
 						Key:   "config",
-						Value: []byte("{\"circleci_token\":\"fake-token\"}"),
+						Value: []byte("{\"circleci_token\":\"fake-token\",\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
 					},
 				},
 			},
-			VCSType:     "github",
-			User:        "u",
 			Project:     "p",
 			BuildNum:    1,
 			VCSRevision: "r",
@@ -137,12 +175,10 @@ func TestVerifyBuild(t *testing.T) {
 				Storage: &GetValidStorage{
 					Entry: &logical.StorageEntry{
 						Key:   "config",
-						Value: []byte("{\"circleci_token\": \"fake-token\"}"),
+						Value: []byte("{\"circleci_token\": \"fake-token\",\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
 					},
 				},
 			},
-			VCSType:        "github",
-			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
 			VCSRevision:    "r",
@@ -163,12 +199,10 @@ func TestVerifyBuild(t *testing.T) {
 				Storage: &GetValidStorage{
 					Entry: &logical.StorageEntry{
 						Key:   "config",
-						Value: []byte("{\"circleci_token\": \"fake-token\"}"),
+						Value: []byte("{\"circleci_token\": \"fake-token\",\"vcs_type\":\"github\",\"owner\":\"fred\"}"),
 					},
 				},
 			},
-			VCSType:        "github",
-			User:           "u",
 			Project:        "p",
 			BuildNum:       1,
 			VCSRevision:    "r",
@@ -177,7 +211,7 @@ func TestVerifyBuild(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		verifyResponse, resp, err := tc.Backend.verifyBuild(tc.Req, tc.VCSType, tc.User, tc.Project, tc.BuildNum, tc.VCSRevision)
+		verifyResponse, resp, err := tc.Backend.verifyBuild(tc.Req, tc.Project, tc.BuildNum, tc.VCSRevision)
 		if tc.ExpectError {
 			assert.NotNil(t, err)
 			assert.Nil(t, verifyResponse)

@@ -36,10 +36,9 @@ func Backend(c *logical.BackendConfig) *backend {
 	return &b
 }
 
-func (b *backend) GetClient(token string) Client {
+func (b *backend) GetClient(token, vcsType, owner string) Client {
 	if b.client == nil {
-		b.client = circleci.New(token)
-
+		b.client = circleci.New(token, vcsType, owner)
 	}
 
 	return b.client

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 
 	"github.com/hashicorp/vault/logical"
@@ -36,14 +37,12 @@ func pathLogin(b *backend) *framework.Path {
 }
 
 func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	vcsType := d.Get("vcs_type").(string)
-	user := d.Get("user").(string)
 	project := d.Get("project").(string)
 	buildNum := d.Get("build_num").(int)
 	vcsRevision := d.Get("vcs_revision").(string)
 
 	var verifyResp *verifyBuildResponse
-	if verifyResponse, resp, err := b.verifyBuild(req, vcsType, user, project, buildNum, vcsRevision); err != nil {
+	if verifyResponse, resp, err := b.verifyBuild(req, project, buildNum, vcsRevision); err != nil {
 		return nil, err
 	} else if resp != nil {
 		return resp, nil
@@ -64,8 +63,6 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	resp := &logical.Response{
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{
-				"vcs_type":     vcsType,
-				"user":         user,
 				"project":      project,
 				"build_num":    buildNum,
 				"vcs_revision": vcsRevision,
@@ -82,18 +79,18 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	return resp, nil
 }
 
-func (b *backend) verifyBuild(req *logical.Request, vcsType, user, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
+func (b *backend) verifyBuild(req *logical.Request, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
 	config, err := b.Config(req.Storage)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if config.CircleCIToken == "" {
+	if config.CircleCIToken == "" || config.VCSType == "" || config.Owner == "" {
 		return nil, logical.ErrorResponse(
 			"configure the circleci credential backend first"), nil
 	}
 
-	client := b.GetClient(config.CircleCIToken)
+	client := b.GetClient(config.CircleCIToken, config.VCSType, config.Owner)
 
 	if config.BaseURL != "" {
 		parsedURL, err := url.Parse(config.BaseURL)
@@ -101,9 +98,10 @@ func (b *backend) verifyBuild(req *logical.Request, vcsType, user, project strin
 			return nil, nil, fmt.Errorf("Successfully parsed base_url when set but failing to parse now: %s", err)
 		}
 		client.SetBaseURL(parsedURL)
+		log.Printf("BaseURL set to: %s", parsedURL.String())
 	}
 
-	build, err := client.GetBuild(vcsType, user, project, buildNum)
+	build, err := client.GetBuild(project, buildNum)
 	if err != nil {
 		return nil, nil, err
 	}
