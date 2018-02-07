@@ -17,4 +17,6 @@ docker exec vault vault write sys/plugins/catalog/vault-circleci-auth sha_256="$
 
 docker exec vault vault auth enable -path=circleci -plugin-name=vault-circleci-auth plugin
 
+docker exec vault vault write auth/circleci/config circleci_token=$CIRCLECI_TOKEN vcs_type=${VCS_TYPE:-"github"} owner=$OWNER ttl=5m max_ttl=15m
+
 docker exec -it vault ash
