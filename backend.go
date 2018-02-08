@@ -28,7 +28,12 @@ func Backend(c *logical.BackendConfig) *backend {
 	allPaths := append(b.ProjectMap.Paths(), pathConfig(&b), pathLogin(&b))
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeCredential,
-		Paths:       allPaths,
+		PathsSpecial: &logical.Paths{
+			Unauthenticated: []string{
+				"login",
+			},
+		},
+		Paths: allPaths,
 	}
 
 	b.Backend.Setup(c)
