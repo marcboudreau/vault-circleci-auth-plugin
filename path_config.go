@@ -14,25 +14,32 @@ func pathConfig(b *backend) *framework.Path {
 		Pattern: "config",
 		Fields: map[string]*framework.FieldSchema{
 			"circleci_token": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "The CircleCI access token that allows this plugin to make CircleCI API calls to verify the authentication information.",
 			},
 			"base_url": &framework.FieldSchema{
-				Type: framework.TypeString,
-				Default: "https://circleci.com",
+				Type:        framework.TypeString,
 				Description: "The base URL used to construct all endpoint URLs for this plugin.",
 			},
 			"ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "Duration of the token's lifetime, unless renewed.",
 			},
 			"max_ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: "Maximum duration of the token's lifetime.",
+			},
+			"vcs_type": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: "The version control system type where the project is hosted.  Supported values are github and bitbucket.",
+			},
+			"owner": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: "The user or organization that owns the project in the VCS.",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.pathConfigRead,
+			logical.ReadOperation:   b.pathConfigRead,
 			logical.UpdateOperation: b.pathConfigWrite,
 		},
 	}
@@ -50,12 +57,14 @@ func (b *backend) pathConfigRead(req *logical.Request, d *framework.FieldData) (
 	return &logical.Response{
 		Data: map[string]interface{}{
 			"circleci_token": config.CircleCIToken,
-			"base_url": config.BaseURL,
-			"ttl": config.TTL,
-			"max_ttl": config.MaxTTL,
+			"base_url":       config.BaseURL,
+			"ttl":            config.TTL,
+			"max_ttl":        config.MaxTTL,
+			"vcs_type":       config.VCSType,
+			"owner":          config.Owner,
 		},
 	}, nil
-} 
+}
 
 func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	circleCIToken := d.Get("circleci_token").(string)
@@ -77,11 +86,16 @@ func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) 
 		return logical.ErrorResponse(fmt.Sprintf("Invalid 'max_ttl': %s", err)), nil
 	}
 
+	vcsType := d.Get("vcs_type").(string)
+	owner := d.Get("owner").(string)
+
 	entry, err := logical.StorageEntryJSON("config", config{
 		CircleCIToken: circleCIToken,
-		BaseURL: baseURL,
-		TTL: ttl,
-		MaxTTL: maxTTL,
+		BaseURL:       baseURL,
+		TTL:           ttl,
+		MaxTTL:        maxTTL,
+		VCSType:       vcsType,
+		Owner:         owner,
 	})
 	if err != nil {
 		return nil, err
@@ -90,6 +104,9 @@ func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) 
 	if err := req.Storage.Put(entry); err != nil {
 		return nil, err
 	}
+
+	// Clear out the client so that it gets reconstructed using the new vcs_type and owner values.
+	b.client = nil
 
 	return nil, nil
 }
@@ -126,8 +143,10 @@ func (b *backend) Config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	CircleCIToken string `json:"circleci_token"`
-	BaseURL string `json:"base_url"`
-	TTL time.Duration `json:"ttl"`
-	MaxTTL time.Duration `json:"max_ttl"`
+	CircleCIToken string        `json:"circleci_token"`
+	BaseURL       string        `json:"base_url"`
+	TTL           time.Duration `json:"ttl"`
+	MaxTTL        time.Duration `json:"max_ttl"`
+	VCSType       string        `json:"vcs_type"`
+	Owner         string        `json:"owner"`
 }

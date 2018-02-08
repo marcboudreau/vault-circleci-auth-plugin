@@ -171,6 +171,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/tylux/go-circleci"
+  packages = ["."]
+  revision = "498a7a967f7dadce210f67f021d4c00a510a74b9"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
   revision = "5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec"
@@ -202,6 +208,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9a370169c3f65a3c7b2facdf010897b7ecec39e38fd0894461e5e86f39d99bb3"
+  inputs-digest = "9958bd3e253fc0391c8a91551226192cc065cc1b19ce3132d32b44dc75eace7f"
   solver-name = "gps-cdcl"
   solver-version = 1
