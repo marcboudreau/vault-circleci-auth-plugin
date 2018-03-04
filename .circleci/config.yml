@@ -15,6 +15,3 @@ jobs:
       - store_artifacts:
           path: ./coverage.out
           destination: coverage
-      - run:
-          name: Build Delay to help with testing
-          command: sleep 300
