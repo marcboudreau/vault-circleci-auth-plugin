@@ -1,6 +1,7 @@
 version: 2.0
 jobs:
   build:
+    working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
     docker:
       - image: golang:1.9.2
     steps:
