@@ -15,3 +15,9 @@ jobs:
       - store_artifacts:
           path: ./coverage.out
           destination: coverage
+      - setup_remote_docker
+      - run:
+          name: Integration Test
+          working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/integration-test
+          command: ./tests.sh
+      
