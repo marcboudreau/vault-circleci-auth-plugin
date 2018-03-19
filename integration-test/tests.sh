@@ -60,7 +60,7 @@ echo -n "Starting docker container " ; docker start vault
 
 sha_sum=$(docker exec vault sha256sum /vault/plugins/vault-circleci-auth-plugin | cut -d ' ' -f 1)
 
-docker exec vault vault status || true
+docker logs vault
 
 docker exec vault vault write sys/plugins/catalog/vault-circleci-auth \
         sha_256=$sha_sum command=vault-circleci-auth-plugin
