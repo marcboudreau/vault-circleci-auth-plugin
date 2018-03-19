@@ -59,6 +59,7 @@ docker cp $(dirname $0)/local.json vault:/vault/config/
 echo -n "Starting docker container " ; docker start vault
 
 sha_sum=$(docker exec vault sha256sum /vault/plugins/vault-circleci-auth-plugin | cut -d ' ' -f 1)
+sleep 15
 
 docker logs vault
 
