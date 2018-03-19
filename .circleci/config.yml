@@ -1,23 +1,23 @@
 version: 2.0
 jobs:
   build:
-    working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
+    working_directory: ~/vault-circleci-auth-plugin
     docker:
-      - image: golang:1.9.2
+      - image: docker:17.11.0-ce
     steps:
       - checkout
-      - run:
-          name: Compile Code
-          command: go build -v
-      - run:
-          name: Test Code
-          command: go test -v -coverprofile coverage.out
-      - store_artifacts:
-          path: ./coverage.out
-          destination: coverage
       - setup_remote_docker
       - run:
+          name: Build plugin
+          command: |
+            docker build -t build -f Dockerfile.build .
+            docker create --rm --name build build
+            docker cp build:/go/src/github.com/marcboudreau/vault-circleci-auth-plugin/vault-circleci-auth-plugin ./vault-circleci-auth-plugin
+            docker rm build
+      - run:
           name: Integration Test
-          working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/integration-test
-          command: ./tests.sh
+          working_directory: ~/vault-circleci-auth-plugin/integration-test
+          command: |
+            apk add --update-cache bash
+            ./tests.sh
       

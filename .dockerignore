@@ -1,0 +1,10 @@
+.circleci
+.git
+.gitignore
+Dockerfile.build
+LICENSE
+README.md
+docs
+integration-test
+run.sh
+vault-circleci-auth-plugin
