@@ -20,5 +20,6 @@ jobs:
           name: Integration Test
           working_directory: ~/vault-circleci-auth-plugin/integration-test
           command: |
+            pwd
             ./tests.sh
       
