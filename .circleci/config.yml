@@ -2,9 +2,11 @@ version: 2.0
 jobs:
   build:
     working_directory: ~/vault-circleci-auth-plugin
-    machine: true
+    docker:
+      - image: docker:18.02.0-ce
     steps:
       - checkout
+      - setup_remote_docker
       - run:
           command: docker version
       - run:
