@@ -47,21 +47,18 @@ for i in 1 2 3 4 5; do
 done
 
 # Creating the Vault server container
-mkdir -p plugins
-cp -f $(dirname $0)/../vault-circleci-auth-plugin plugins/
+mkdir -p ./plugins
+cp -f $(dirname $0)/../vault-circleci-auth-plugin ./plugins/
 
 echo -n "Creating docker container for vault: "
 docker create --rm --name vault --network vaulttest \
         -e VAULT_TOKEN=root -e VAULT_ADDR=http://127.0.0.1:8200 \
+        -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins/"}' \
         vault:0.9.2 server -dev -dev-root-token-id=root
 docker cp plugins vault:/vault/
-docker cp $(dirname $0)/local.json vault:/vault/config/
 echo -n "Starting docker container " ; docker start vault
 
 sha_sum=$(docker exec vault sha256sum /vault/plugins/vault-circleci-auth-plugin | cut -d ' ' -f 1)
-sleep 15
-
-docker logs vault
 
 docker exec vault vault write sys/plugins/catalog/vault-circleci-auth \
         sha_256=$sha_sum command=vault-circleci-auth-plugin
