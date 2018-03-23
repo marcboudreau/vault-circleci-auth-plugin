@@ -3,15 +3,22 @@ jobs:
   build:
     working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
     docker:
-      - image: golang:1.9.2
+      - image: golang:1.9
     steps:
       - checkout
       - run:
-          name: Compile Code
-          command: go build -v
-      - run:
-          name: Test Code
-          command: go test -v -coverprofile coverage.out
-      - store_artifacts:
-          path: ./coverage.out
-          destination: coverage
+          name: Build plugin
+          command: |
+            go get
+            go build
+            go test
+# Commenting this out because it won't work on CircleCI,
+# but it does work locally with Docker for Mac.
+#      - run:
+#          name: Integration Test
+#          working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/integration-test
+#          command: |
+#            apk add --update-cache bash
+#            ./tests.sh
+
+      

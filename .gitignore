@@ -4,6 +4,7 @@
 *.so
 *.dylib
 vault-circleci-auth-plugin
+integration-test/plugins
 
 # Test binary, build with `go test -c`
 *.test

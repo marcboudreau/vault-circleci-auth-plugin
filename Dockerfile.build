@@ -1,0 +1,10 @@
+FROM golang:1.9.4
+
+COPY ./ /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/
+
+WORKDIR /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
+
+RUN go test -v ./...
+
+RUN go build
+
