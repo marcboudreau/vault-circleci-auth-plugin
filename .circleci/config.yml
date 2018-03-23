@@ -1,7 +1,7 @@
 version: 2.0
 jobs:
   build:
-    working_directory: ~/vault-circleci-auth-plugin
+    working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
     docker:
       - image: golang:1.9
     steps:
@@ -16,7 +16,7 @@ jobs:
 # but it does work locally with Docker for Mac.
 #      - run:
 #          name: Integration Test
-#          working_directory: ~/vault-circleci-auth-plugin/integration-test
+#          working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/integration-test
 #          command: |
 #            apk add --update-cache bash
 #            ./tests.sh
