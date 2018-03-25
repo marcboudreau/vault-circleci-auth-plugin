@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 
@@ -12,6 +14,8 @@ type backend struct {
 
 	client     Client
 	ProjectMap *framework.PolicyMap
+
+	AttemptedBuilds *CircleCIBuildList
 }
 
 // Backend creates a new backend with the provided BackendConfig.
@@ -25,6 +29,8 @@ func Backend(c *logical.BackendConfig) *backend {
 		DefaultKey: "default",
 	}
 
+	b.AttemptedBuilds = New()
+
 	allPaths := append(b.ProjectMap.Paths(), pathConfig(&b), pathLogin(&b))
 	b.Backend = &framework.Backend{
 		BackendType: logical.TypeCredential,
@@ -33,7 +39,8 @@ func Backend(c *logical.BackendConfig) *backend {
 				"login",
 			},
 		},
-		Paths: allPaths,
+		Paths:        allPaths,
+		PeriodicFunc: cleanupFunc(&b),
 	}
 
 	b.Backend.Setup(c)
@@ -47,4 +54,15 @@ func (b *backend) GetClient(token, vcsType, owner string) Client {
 	}
 
 	return b.client
+}
+
+func (b *backend) RecordAttempt(project string, buildNum int) bool {
+	return b.AttemptedBuilds.Add(project, buildNum)
+}
+
+func cleanupFunc(b *backend) func(*logical.Request) error {
+	return func(*logical.Request) error {
+		b.AttemptedBuilds.Cleanup(time.Now().Add(-5 * time.Hour))
+		return nil
+	}
 }

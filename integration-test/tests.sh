@@ -54,7 +54,8 @@ echo -n "Creating docker container for vault: "
 docker create --rm --name vault --network vaulttest \
         -e VAULT_TOKEN=root -e VAULT_ADDR=http://127.0.0.1:8200 \
         -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins/"}' \
-        vault:0.9.2 server -dev -dev-root-token-id=root
+        vault:0.9.2 server -dev -dev-root-token-id=root \
+        -log-level trace
 docker cp plugins vault:/vault/
 echo -n "Starting docker container " ; docker start vault
 
@@ -83,3 +84,10 @@ for i in 1 2 3 4 5; do
                 && echo "Test $i PASSED"
     fi
 done
+
+# Testing a second attempt at authenticating the same build
+read response <<< $(docker exec vault vault write auth/test5/login project=someproject build_num=100 \
+        vcs_revision=babababababababababababababababababababa 2>&1)
+
+echo $response | grep -F "an attempt to authenticate as this build has already been made" > /dev/null \
+        && echo "Test $i-supplement PASSED"
