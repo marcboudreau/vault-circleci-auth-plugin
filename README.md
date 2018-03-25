@@ -6,8 +6,10 @@ given CircleCI project.
 
 ## Architecture
 
-The authentication is achieved by having the running CircleCI build provide
-pieces of data that the Vault server can verify using the CircleCI API.
+The authentication is achieved by providing details about the running CircleCI
+build that the Vault server can verify using the CircleCI API.
+
+## Configuration
 
 The plugin must be configured with certain parameters prior to being able to
 successfully handle login requests.  The plugin is configured by sending a POST
@@ -27,16 +29,27 @@ Request parameters:
 
 * **max_ttl** is a time duration that sets the largest *ttl* that a new token can be assigned in this plugin.
 
-This plugin supports mapping different policies for specific projects owned by the
-user or organization specified in the plugin configuration (via the **owner** parameter).
+* **attempts_cache_time** is the time duration that the backend caches login attempts.  Defaults to `18000s` (5 hours).
 
-To map specific policies to a project, send a POST request to the `auth/circleci/map/projects/:project` endpoint.
+The plugin caches login attempts for and an approximate duration of **attempts_cache_time**.
+The longer this duration, the greater the memory requirement will be.  However, in order
+to prevent replay attacks, the plugin must cache the attempt for a duration that exceeds
+the maximum CircleCI build duration possible.
+
+## Policy Mapping
+
+By default, this plugin doesn't associate any policies with the tokens that it creates,
+except for the **default** policy.  To specify which policies are associated, a mapping
+of project to policies must be provided by sending a POST request to the
+`auth/circleci/map/projects/:project` endpoint.
 
 Request parameters:
 
 * **project** is the name of the CircleCI project being mapped to specific policies.
 
 * **values** is a comma separated list of policy names to map to the specified project.
+
+## Authentication
 
 To create a token with this plugin, send a POST request to the `auth/circleci/login`
 endpoint.
@@ -98,12 +111,11 @@ CircleCI will respond to this request with a response describing the specified b
 }
 ```
 
-The plugin will verify that both the **lifecycle** and **status** keys in the
-response are set to `running`, and that the **vcs_revision** key is set to the
-same value as the **vcs_revision** parameter that was specified in the Login request.
-If these conditions are met, a new token will be created.  Then, the plugin
-will associate any mapped policies to the new token in addition to associating the
-**default** policy.
+The plugin will verify that both the **lifecycle** key in the response is set
+to `running`, and that the **vcs_revision** key is set to the same value as the
+**vcs_revision** parameter that was specified in the Login request.  If these
+conditions are met, a new token will be created with all of the mapped policies
+associated to it, in addition to the **default** policy.
 
 Finally the plugin will send a response to the initial Login request that
 resembles the following:

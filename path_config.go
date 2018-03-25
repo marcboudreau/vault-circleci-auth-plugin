@@ -20,6 +20,7 @@ func pathConfig(b *backend) *framework.Path {
 			"base_url": &framework.FieldSchema{
 				Type:        framework.TypeString,
 				Description: "The base URL used to construct all endpoint URLs for this plugin.",
+				Default:     "https://circleci.com/api/v1.1",
 			},
 			"ttl": &framework.FieldSchema{
 				Type:        framework.TypeString,
@@ -37,6 +38,11 @@ func pathConfig(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "The user or organization that owns the project in the VCS.",
 			},
+			"attempt_cache_time": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: "The duration that login attempts are cached in order to prevent further attempts.",
+				Default:     "18000s",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation:   b.pathConfigRead,
@@ -53,15 +59,17 @@ func (b *backend) pathConfigRead(req *logical.Request, d *framework.FieldData) (
 
 	config.TTL /= time.Second
 	config.MaxTTL /= time.Second
+	config.AttemptCacheTime /= time.Second
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"circleci_token": config.CircleCIToken,
-			"base_url":       config.BaseURL,
-			"ttl":            config.TTL,
-			"max_ttl":        config.MaxTTL,
-			"vcs_type":       config.VCSType,
-			"owner":          config.Owner,
+			"circleci_token":     config.CircleCIToken,
+			"base_url":           config.BaseURL,
+			"ttl":                config.TTL,
+			"max_ttl":            config.MaxTTL,
+			"vcs_type":           config.VCSType,
+			"owner":              config.Owner,
+			"attempt_cache_time": config.AttemptCacheTime,
 		},
 	}, nil
 }
@@ -86,16 +94,22 @@ func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) 
 		return logical.ErrorResponse(fmt.Sprintf("Invalid 'max_ttl': %s", err)), nil
 	}
 
+	attemptCacheTime, err := parseDurationField("attempt_cache_time", d)
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("Invalid 'attempt_cache_time': %s", err)), nil
+	}
+
 	vcsType := d.Get("vcs_type").(string)
 	owner := d.Get("owner").(string)
 
 	entry, err := logical.StorageEntryJSON("config", config{
-		CircleCIToken: circleCIToken,
-		BaseURL:       baseURL,
-		TTL:           ttl,
-		MaxTTL:        maxTTL,
-		VCSType:       vcsType,
-		Owner:         owner,
+		CircleCIToken:    circleCIToken,
+		BaseURL:          baseURL,
+		TTL:              ttl,
+		MaxTTL:           maxTTL,
+		VCSType:          vcsType,
+		Owner:            owner,
+		AttemptCacheTime: attemptCacheTime,
 	})
 	if err != nil {
 		return nil, err
@@ -107,6 +121,7 @@ func (b *backend) pathConfigWrite(req *logical.Request, d *framework.FieldData) 
 
 	// Clear out the client so that it gets reconstructed using the new vcs_type and owner values.
 	b.client = nil
+	b.AttemptedBuildsBuffer = attemptCacheTime
 
 	return nil, nil
 }
@@ -143,10 +158,11 @@ func (b *backend) Config(s logical.Storage) (*config, error) {
 }
 
 type config struct {
-	CircleCIToken string        `json:"circleci_token"`
-	BaseURL       string        `json:"base_url"`
-	TTL           time.Duration `json:"ttl"`
-	MaxTTL        time.Duration `json:"max_ttl"`
-	VCSType       string        `json:"vcs_type"`
-	Owner         string        `json:"owner"`
+	CircleCIToken    string        `json:"circleci_token"`
+	BaseURL          string        `json:"base_url"`
+	TTL              time.Duration `json:"ttl"`
+	MaxTTL           time.Duration `json:"max_ttl"`
+	VCSType          string        `json:"vcs_type"`
+	Owner            string        `json:"owner"`
+	AttemptCacheTime time.Duration `json:"attempt_cache_time"`
 }

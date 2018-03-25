@@ -54,7 +54,8 @@ echo -n "Creating docker container for vault: "
 docker create --rm --name vault --network vaulttest \
         -e VAULT_TOKEN=root -e VAULT_ADDR=http://127.0.0.1:8200 \
         -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins/"}' \
-        vault:0.9.2 server -dev -dev-root-token-id=root
+        vault:0.9.2 server -dev -dev-root-token-id=root \
+        ${VAULT_LOG_LEVEL:-""}
 docker cp plugins vault:/vault/
 echo -n "Starting docker container " ; docker start vault
 
@@ -83,3 +84,34 @@ for i in 1 2 3 4 5; do
                 && echo "Test $i PASSED"
     fi
 done
+
+# Testing a second attempt at authenticating the same build
+read response <<< $(docker exec vault vault write auth/test5/login project=someproject build_num=100 \
+        vcs_revision=babababababababababababababababababababa 2>&1)
+
+echo $response | grep -F "an attempt to authenticate as this build has already been made" > /dev/null \
+        && echo "Test 6 PASSED"
+
+docker exec vault vault write auth/test5/config circleci_token=fake \
+            vcs_type=github owner=johnsmith ttl=5m max_ttl=15m \
+            base_url=http://circle$i:7979 attempt_cache_time=1s
+
+echo "Waiting 90 seconds so that Attempts cache can be cleared..."
+sleep 90s
+
+# This test verifies the ability to adjust the time that records are
+# kept in the attempts cache, by reducing that period to 1 second
+# and verifying that another login attempt can be made, which proves that
+# the attempts cache has been cleared.  Adjusting this duration would be
+# done for 2 reasons:
+#   1. Increased, if there are concerns that a CircleCI build could
+#      still be running after 5 hours (will increase memory consumption)
+#   2. Decreased, if operators want to reduce memory consumption and
+#      they are certain that build lifetimes won't exceed the new
+#      duration.
+read response <<< $(docker exec vault vault write -format=json \
+        auth/test3/login project=someproject build_num=100 \
+        vcs_revision=babababababababababababababababababababa 2>&1)
+
+[[ $(echo $response | jq -r '.auth.client_token' | wc -c) -gt 0 ]] \
+        && echo "Test 7 PASSED"

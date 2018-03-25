@@ -41,6 +41,10 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	buildNum := d.Get("build_num").(int)
 	vcsRevision := d.Get("vcs_revision").(string)
 
+	if err := b.lockBuild(project, buildNum); err != nil {
+		return err, nil
+	}
+
 	var verifyResp *verifyBuildResponse
 	if verifyResponse, resp, err := b.verifyBuild(req, project, buildNum, vcsRevision); err != nil {
 		return nil, err
@@ -77,6 +81,14 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	}
 
 	return resp, nil
+}
+
+func (b *backend) lockBuild(project string, buildNum int) *logical.Response {
+	if !b.RecordAttempt(project, buildNum) {
+		return logical.ErrorResponse(
+			"an attempt to authenticate as this build has already been made")
+	}
+	return nil
 }
 
 func (b *backend) verifyBuild(req *logical.Request, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
