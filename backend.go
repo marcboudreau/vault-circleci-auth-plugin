@@ -15,7 +15,8 @@ type backend struct {
 	client     Client
 	ProjectMap *framework.PolicyMap
 
-	AttemptedBuilds *CircleCIBuildList
+	AttemptedBuilds       *CircleCIBuildList
+	AttemptedBuildsBuffer time.Duration
 }
 
 // Backend creates a new backend with the provided BackendConfig.
@@ -30,17 +31,19 @@ func Backend(c *logical.BackendConfig) *backend {
 	}
 
 	b.AttemptedBuilds = New()
+	b.AttemptedBuildsBuffer = 5 * time.Hour
 
 	allPaths := append(b.ProjectMap.Paths(), pathConfig(&b), pathLogin(&b))
+
 	b.Backend = &framework.Backend{
-		BackendType: logical.TypeCredential,
+		PeriodicFunc: b.periodicFunc,
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{
 				"login",
 			},
 		},
-		Paths:        allPaths,
-		PeriodicFunc: cleanupFunc(&b),
+		Paths:       allPaths,
+		BackendType: logical.TypeCredential,
 	}
 
 	b.Backend.Setup(c)
@@ -60,9 +63,8 @@ func (b *backend) RecordAttempt(project string, buildNum int) bool {
 	return b.AttemptedBuilds.Add(project, buildNum)
 }
 
-func cleanupFunc(b *backend) func(*logical.Request) error {
-	return func(*logical.Request) error {
-		b.AttemptedBuilds.Cleanup(time.Now().Add(-5 * time.Hour))
-		return nil
-	}
+func (b *backend) periodicFunc(_ *logical.Request) error {
+	b.Logger().Trace("periodicFunc called with time", time.Now().Add(-b.AttemptedBuildsBuffer).Format(time.UnixDate))
+	b.AttemptedBuilds.Cleanup(time.Now().Add(-b.AttemptedBuildsBuffer), b)
+	return nil
 }

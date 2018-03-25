@@ -68,10 +68,10 @@ func TestCleanup(t *testing.T) {
 
 	now := time.Now()
 
-	l.Cleanup(now.Add(-time.Hour))
+	l.Cleanup(now.Add(-time.Hour), nil)
 	assert.Equal(t, len(data), l.size())
 
-	l.Cleanup(now.Add(time.Hour))
+	l.Cleanup(now.Add(time.Hour), nil)
 	assert.Equal(t, 0, l.size())
 
 	for _, d := range data {
@@ -86,6 +86,6 @@ func TestCleanup(t *testing.T) {
 		l.Add(d.project, d.buildNum)
 	}
 
-	l.Cleanup(now)
+	l.Cleanup(now, nil)
 	assert.Equal(t, len(data2), l.size())
 }
