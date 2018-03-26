@@ -1,24 +1,33 @@
 version: 2.0
 jobs:
   build:
-    working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin
+    working_directory: ~/vault-circleci-auth-plugin
     docker:
-      - image: golang:1.9
+      - image: docker:18.03.0-ce
     steps:
       - checkout
+      - setup_remote_docker
       - run:
           name: Build plugin
+          command: docker build -f Dockerfile -t marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) .
+      - run:
+          name: Extract plugin binary
           command: |
-            go get
-            go build
-            go test
-# Commenting this out because it won't work on CircleCI,
-# but it does work locally with Docker for Mac.
-#      - run:
-#          name: Integration Test
-#          working_directory: /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/integration-test
-#          command: |
-#            apk add --update-cache bash
-#            ./tests.sh
-
+            docker create --name build marcboudreau/vault-circleci-auth-plugin:$(cat version.txt)
+            docker cp build:/vault/plugins/vault-circleci-auth-plugin .
+            docker rm build
+      - run:
+          name: Integration Test
+          working_directory: ~/vault-circleci-auth-plugin/integration-test
+          command: |
+            apk add --update-cache bash jq
+            ./tests.sh
+      - run:
+          name: Push to DockerHub
+          command: |
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
+            if [[ $CIRCLE_BRANCH == master ]]; then
+              docker tag marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) marcboudreau/vault-circleci-auth-plugin:latest
+            fi
+            docker push marcboudreau/vault-circleci-auth-plugin
       

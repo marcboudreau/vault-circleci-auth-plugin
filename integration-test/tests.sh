@@ -29,8 +29,8 @@ status_codes=(200 200 200 404 500)
 grep_expressions=("circleci build is not currently running"
                   "provided VCS revision does not match the revision reported by circleci"
                   ""
-                  'Errors: * 404:'
-                  'Errors: * 500:')
+                  '* 404: {"message":"Not Found","documentation_url":"https://developer.github.com/v3/repos/#get"}'
+                  '* 500: An internal error occurred')
 
 # Creating the Docker Network vaulttest
 echo -n "Creating docker network: " ; docker network create vaulttest
@@ -54,7 +54,7 @@ echo -n "Creating docker container for vault: "
 docker create --rm --name vault --network vaulttest \
         -e VAULT_TOKEN=root -e VAULT_ADDR=http://127.0.0.1:8200 \
         -e VAULT_LOCAL_CONFIG='{"plugin_directory": "/vault/plugins/"}' \
-        vault:0.9.2 server -dev -dev-root-token-id=root \
+        vault:latest server -dev -dev-root-token-id=root \
         ${VAULT_LOG_LEVEL:-""}
 docker cp plugins vault:/vault/
 echo -n "Starting docker container " ; docker start vault
@@ -72,9 +72,9 @@ for i in 1 2 3 4 5; do
             vcs_type=github owner=johnsmith ttl=5m max_ttl=15m \
             base_url=http://circle$i:7979
 
-    read response <<< $(docker exec vault vault write -format=json \
+    response=$(docker exec vault vault write -format=json \
             auth/test$i/login project=someproject build_num=100 \
-            vcs_revision=babababababababababababababababababababa 2>&1)
+            vcs_revision=babababababababababababababababababababa 2>&1 || true)
 
     if [[ ${grep_expressions[$((i-1))]} ]]; then
         echo "$response" | grep -F "${grep_expressions[$((i-1))]}" > /dev/null \
@@ -86,8 +86,8 @@ for i in 1 2 3 4 5; do
 done
 
 # Testing a second attempt at authenticating the same build
-read response <<< $(docker exec vault vault write auth/test5/login project=someproject build_num=100 \
-        vcs_revision=babababababababababababababababababababa 2>&1)
+response=$(docker exec vault vault write auth/test5/login project=someproject build_num=100 \
+        vcs_revision=babababababababababababababababababababa 2>&1 || true)
 
 echo $response | grep -F "an attempt to authenticate as this build has already been made" > /dev/null \
         && echo "Test 6 PASSED"
@@ -109,9 +109,9 @@ sleep 90s
 #   2. Decreased, if operators want to reduce memory consumption and
 #      they are certain that build lifetimes won't exceed the new
 #      duration.
-read response <<< $(docker exec vault vault write -format=json \
+response=$(docker exec vault vault write -format=json \
         auth/test3/login project=someproject build_num=100 \
-        vcs_revision=babababababababababababababababababababa 2>&1)
+        vcs_revision=babababababababababababababababababababa 2>&1 || true)
 
 [[ $(echo $response | jq -r '.auth.client_token' | wc -c) -gt 0 ]] \
         && echo "Test 7 PASSED"
