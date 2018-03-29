@@ -1,6 +1,7 @@
 package pluginutil
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -30,9 +31,9 @@ var (
 	// string. Used for testing.
 	PluginCACertPEMEnv = "VAULT_TESTING_PLUGIN_CA_PEM"
 
-	// PluginMetadaModeEnv is an ENV name used to disable TLS communication
+	// PluginMetadataModeEnv is an ENV name used to disable TLS communication
 	// to bootstrap mounting plugins.
-	PluginMetadaModeEnv = "VAULT_PLUGIN_METADATA_MODE"
+	PluginMetadataModeEnv = "VAULT_PLUGIN_METADATA_MODE"
 )
 
 // generateCert is used internally to create certificates for the plugin
@@ -97,6 +98,8 @@ func createClientTLSConfig(certBytes []byte, key *ecdsa.PrivateKey) (*tls.Config
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      clientCertPool,
+		ClientCAs:    clientCertPool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ServerName:   clientCert.Subject.CommonName,
 		MinVersion:   tls.VersionTLS12,
 	}
@@ -108,13 +111,13 @@ func createClientTLSConfig(certBytes []byte, key *ecdsa.PrivateKey) (*tls.Config
 
 // wrapServerConfig is used to create a server certificate and private key, then
 // wrap them in an unwrap token for later retrieval by the plugin.
-func wrapServerConfig(sys RunnerUtil, certBytes []byte, key *ecdsa.PrivateKey) (string, error) {
+func wrapServerConfig(ctx context.Context, sys RunnerUtil, certBytes []byte, key *ecdsa.PrivateKey) (string, error) {
 	rawKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return "", err
 	}
 
-	wrapInfo, err := sys.ResponseWrapData(map[string]interface{}{
+	wrapInfo, err := sys.ResponseWrapData(ctx, map[string]interface{}{
 		"ServerCert": certBytes,
 		"ServerKey":  rawKey,
 	}, time.Second*60, true)
@@ -125,10 +128,10 @@ func wrapServerConfig(sys RunnerUtil, certBytes []byte, key *ecdsa.PrivateKey) (
 	return wrapInfo.Token, nil
 }
 
-// VaultPluginTLSProvider is run inside a plugin and retrives the response
+// VaultPluginTLSProvider is run inside a plugin and retrieves the response
 // wrapped TLS certificate from vault. It returns a configured TLS Config.
 func VaultPluginTLSProvider(apiTLSConfig *api.TLSConfig) func() (*tls.Config, error) {
-	if os.Getenv(PluginMetadaModeEnv) == "true" {
+	if os.Getenv(PluginMetadataModeEnv) == "true" {
 		return nil
 	}
 
@@ -234,6 +237,7 @@ func VaultPluginTLSProvider(apiTLSConfig *api.TLSConfig) func() (*tls.Config, er
 			// TLS 1.2 minimum
 			MinVersion:   tls.VersionTLS12,
 			Certificates: []tls.Certificate{cert},
+			ServerName:   serverCert.Subject.CommonName,
 		}
 		tlsConfig.BuildNameToCertificate()
 

@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -272,7 +273,7 @@ func pathRoles(b *backend) *framework.Path {
 				Description: `
 				[Not applicable for Dynamic type] [Not applicable for OTP type] [Optional for CA type]
 				When supplied, this value specifies a custom format for the key id of a signed certificate.
-				The following variables are availble for use: '{{token_display_name}}' - The display name of
+				The following variables are available for use: '{{token_display_name}}' - The display name of
 				the token used to make the request. '{{role_name}}' - The name of the role signing the request.
 				'{{public_key_hash}}' - A SHA256 checksum of the public key that is being signed.
 				`,
@@ -290,7 +291,7 @@ func pathRoles(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) pathRoleWrite(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleName := d.Get("role").(string)
 	if roleName == "" {
 		return logical.ErrorResponse("missing role name"), nil
@@ -367,7 +368,7 @@ func (b *backend) pathRoleWrite(req *logical.Request, d *framework.FieldData) (*
 		if keyName == "" {
 			return logical.ErrorResponse("missing key name"), nil
 		}
-		keyEntry, err := req.Storage.Get(fmt.Sprintf("keys/%s", keyName))
+		keyEntry, err := req.Storage.Get(ctx, fmt.Sprintf("keys/%s", keyName))
 		if err != nil || keyEntry == nil {
 			return logical.ErrorResponse(fmt.Sprintf("invalid 'key': %q", keyName)), nil
 		}
@@ -426,7 +427,7 @@ func (b *backend) pathRoleWrite(req *logical.Request, d *framework.FieldData) (*
 		return nil, err
 	}
 
-	if err := req.Storage.Put(entry); err != nil {
+	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -471,8 +472,8 @@ func (b *backend) createCARole(allowedUsers, defaultUser string, data *framework
 	return role, nil
 }
 
-func (b *backend) getRole(s logical.Storage, n string) (*sshRole, error) {
-	entry, err := s.Get("roles/" + n)
+func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*sshRole, error) {
+	entry, err := s.Get(ctx, "roles/"+n)
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +490,7 @@ func (b *backend) getRole(s logical.Storage, n string) (*sshRole, error) {
 }
 
 // parseRole converts a sshRole object into its map[string]interface representation,
-// with appropriate values for each KeyType. If the KeyType is invalid, it will retun
+// with appropriate values for each KeyType. If the KeyType is invalid, it will return
 // an error.
 func (b *backend) parseRole(role *sshRole) (map[string]interface{}, error) {
 	var result map[string]interface{}
@@ -529,6 +530,7 @@ func (b *backend) parseRole(role *sshRole) (map[string]interface{}, error) {
 			"allow_user_key_ids":       role.AllowUserKeyIDs,
 			"key_id_format":            role.KeyIDFormat,
 			"key_type":                 role.KeyType,
+			"key_bits":                 role.KeyBits,
 			"default_critical_options": role.DefaultCriticalOptions,
 			"default_extensions":       role.DefaultExtensions,
 		}
@@ -557,15 +559,15 @@ func (b *backend) parseRole(role *sshRole) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func (b *backend) pathRoleList(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entries, err := req.Storage.List("roles/")
+func (b *backend) pathRoleList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	entries, err := req.Storage.List(ctx, "roles/")
 	if err != nil {
 		return nil, err
 	}
 
 	keyInfo := map[string]interface{}{}
 	for _, entry := range entries {
-		role, err := b.getRole(req.Storage, entry)
+		role, err := b.getRole(ctx, req.Storage, entry)
 		if err != nil {
 			// On error, log warning and continue
 			if b.Logger().IsWarn() {
@@ -599,8 +601,8 @@ func (b *backend) pathRoleList(req *logical.Request, d *framework.FieldData) (*l
 	return logical.ListResponseWithInfo(entries, keyInfo), nil
 }
 
-func (b *backend) pathRoleRead(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	role, err := b.getRole(req.Storage, d.Get("role").(string))
+func (b *backend) pathRoleRead(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	role, err := b.getRole(ctx, req.Storage, d.Get("role").(string))
 	if err != nil {
 		return nil, err
 	}
@@ -618,18 +620,18 @@ func (b *backend) pathRoleRead(req *logical.Request, d *framework.FieldData) (*l
 	}, nil
 }
 
-func (b *backend) pathRoleDelete(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleDelete(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	roleName := d.Get("role").(string)
 
 	// If the role was given privilege to accept any IP address, there will
 	// be an entry for this role in zero-address roles list. Before the role
 	// is removed, the entry in the list has to be removed.
-	err := b.removeZeroAddressRole(req.Storage, roleName)
+	err := b.removeZeroAddressRole(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	}
 
-	err = req.Storage.Delete(fmt.Sprintf("roles/%s", roleName))
+	err = req.Storage.Delete(ctx, fmt.Sprintf("roles/%s", roleName))
 	if err != nil {
 		return nil, err
 	}

@@ -92,12 +92,13 @@ response=$(docker exec vault vault write auth/test5/login project=someproject bu
 echo $response | grep -F "an attempt to authenticate as this build has already been made" > /dev/null \
         && echo "Test 6 PASSED"
 
-docker exec vault vault write auth/test5/config circleci_token=fake \
+docker exec vault vault write auth/test3/config circleci_token=fake \
             vcs_type=github owner=johnsmith ttl=5m max_ttl=15m \
-            base_url=http://circle$i:7979 attempt_cache_time=1s
+            base_url=http://circle3:7979 attempt_cache_expiry=1s
 
-echo "Waiting 90 seconds so that Attempts cache can be cleared..."
-sleep 90s
+docker exec vault vault write -format=json \
+        auth/test3/login project=someproject build_num=101 \
+        vcs_revision=babababababababababababababababababababa 2>&1 > /dev/null
 
 # This test verifies the ability to adjust the time that records are
 # kept in the attempts cache, by reducing that period to 1 second
@@ -109,8 +110,11 @@ sleep 90s
 #   2. Decreased, if operators want to reduce memory consumption and
 #      they are certain that build lifetimes won't exceed the new
 #      duration.
+echo "Waiting 90 seconds so that Attempts cache can be cleared..."
+sleep 90s
+
 response=$(docker exec vault vault write -format=json \
-        auth/test3/login project=someproject build_num=100 \
+        auth/test3/login project=someproject build_num=101 \
         vcs_revision=babababababababababababababababababababa 2>&1 || true)
 
 [[ $(echo $response | jq -r '.auth.client_token' | wc -c) -gt 0 ]] \

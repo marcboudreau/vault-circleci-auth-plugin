@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/errwrap"
+	"github.com/hashicorp/vault/helper/useragent"
 	"github.com/hashicorp/vault/physical"
 	log "github.com/mgutz/logxi/v1"
 
@@ -29,6 +30,15 @@ type GCSBackend struct {
 	logger     log.Logger
 }
 
+var (
+	// Verify GCSBackend satisfies the correct interfaces
+	_ physical.Backend = (*GCSBackend)(nil)
+
+	// Number of bytes the writer will attempt to write in a single request.
+	// Defaults to 8Mb, as defined in the gcs library
+	chunkSize = 8 * 1024 * 1024
+)
+
 // NewGCSBackend constructs a Google Cloud Storage backend using a pre-existing
 // bucket. Credentials can be provided to the backend, sourced
 // from environment variables or a service account file
@@ -45,7 +55,7 @@ func NewGCSBackend(conf map[string]string, logger log.Logger) (physical.Backend,
 	ctx := context.Background()
 	client, err := newGCSClient(ctx, conf, logger)
 	if err != nil {
-		return nil, errwrap.Wrapf("error establishing strorage client: {{err}}", err)
+		return nil, errwrap.Wrapf("error establishing storage client: {{err}}", err)
 	}
 
 	// check client connectivity by getting bucket attributes
@@ -66,6 +76,18 @@ func NewGCSBackend(conf map[string]string, logger log.Logger) (physical.Backend,
 		}
 	}
 
+	chunkSizeStr, ok := conf["chunk_size"]
+	if ok {
+		chunkSize, err = strconv.Atoi(chunkSizeStr)
+		if err != nil {
+			return nil, errwrap.Wrapf("failed parsing chunk_size parameter: {{err}}", err)
+		}
+		chunkSize *= 1024
+		if logger.IsDebug() {
+			logger.Debug("physical/gcs: chunk_size set", "chunk_size", chunkSize)
+		}
+	}
+
 	g := GCSBackend{
 		bucketName: bucketName,
 		client:     client,
@@ -81,8 +103,8 @@ func newGCSClient(ctx context.Context, conf map[string]string, logger log.Logger
 	// else use application default credentials
 	credentialsFile, ok := conf["credentials_file"]
 	if ok {
-		client, err := storage.NewClient(
-			ctx,
+		client, err := storage.NewClient(ctx,
+			option.WithUserAgent(useragent.String()),
 			option.WithServiceAccountFile(credentialsFile),
 		)
 
@@ -92,7 +114,9 @@ func newGCSClient(ctx context.Context, conf map[string]string, logger log.Logger
 		return client, nil
 	}
 
-	client, err := storage.NewClient(ctx)
+	client, err := storage.NewClient(ctx,
+		option.WithUserAgent(useragent.String()),
+	)
 	if err != nil {
 		return nil, errwrap.Wrapf("error with application default credentials: {{err}}", err)
 	}
@@ -100,11 +124,12 @@ func newGCSClient(ctx context.Context, conf map[string]string, logger log.Logger
 }
 
 // Put is used to insert or update an entry
-func (g *GCSBackend) Put(entry *physical.Entry) error {
+func (g *GCSBackend) Put(ctx context.Context, entry *physical.Entry) error {
 	defer metrics.MeasureSince([]string{"gcs", "put"}, time.Now())
 
 	bucket := g.client.Bucket(g.bucketName)
 	writer := bucket.Object(entry.Key).NewWriter(context.Background())
+	writer.ChunkSize = chunkSize
 
 	g.permitPool.Acquire()
 	defer g.permitPool.Release()
@@ -116,7 +141,7 @@ func (g *GCSBackend) Put(entry *physical.Entry) error {
 }
 
 // Get is used to fetch an entry
-func (g *GCSBackend) Get(key string) (*physical.Entry, error) {
+func (g *GCSBackend) Get(ctx context.Context, key string) (*physical.Entry, error) {
 	defer metrics.MeasureSince([]string{"gcs", "get"}, time.Now())
 
 	bucket := g.client.Bucket(g.bucketName)
@@ -147,7 +172,7 @@ func (g *GCSBackend) Get(key string) (*physical.Entry, error) {
 }
 
 // Delete is used to permanently delete an entry
-func (g *GCSBackend) Delete(key string) error {
+func (g *GCSBackend) Delete(ctx context.Context, key string) error {
 	defer metrics.MeasureSince([]string{"gcs", "delete"}, time.Now())
 
 	bucket := g.client.Bucket(g.bucketName)
@@ -169,7 +194,7 @@ func (g *GCSBackend) Delete(key string) error {
 
 // List is used to list all the keys under a given
 // prefix, up to the next prefix.
-func (g *GCSBackend) List(prefix string) ([]string, error) {
+func (g *GCSBackend) List(ctx context.Context, prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"gcs", "list"}, time.Now())
 
 	bucket := g.client.Bucket(g.bucketName)

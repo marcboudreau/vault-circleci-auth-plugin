@@ -1,6 +1,7 @@
 package zookeeper
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -22,6 +23,11 @@ const (
 	// key.
 	ZKNodeFilePrefix = "_"
 )
+
+// Verify ZooKeeperBackend satisfies the correct interfaces
+var _ physical.Backend = (*ZooKeeperBackend)(nil)
+var _ physical.HABackend = (*ZooKeeperBackend)(nil)
+var _ physical.Lock = (*ZooKeeperHALock)(nil)
 
 // ZooKeeperBackend is a physical backend that stores data at specific
 // prefix within ZooKeeper. It is used in production situations as
@@ -82,9 +88,15 @@ func NewZooKeeperBackend(conf map[string]string, logger log.Logger) (physical.Ba
 		}
 	}
 
-	acl := []zk.ACL{{zk.PermAll, schema, owner}}
+	acl := []zk.ACL{
+		{
+			Perms:  zk.PermAll,
+			Scheme: schema,
+			ID:     owner,
+		},
+	}
 
-	// Authnetication info
+	// Authentication info
 	var schemaAndUser string
 	var useAddAuth bool
 	schemaAndUser, useAddAuth = conf["auth_info"]
@@ -160,7 +172,7 @@ func (c *ZooKeeperBackend) ensurePath(path string, value []byte) error {
 	return nil
 }
 
-// cleanupLogicalPath is used to remove all empty nodes, begining with deepest one,
+// cleanupLogicalPath is used to remove all empty nodes, beginning with deepest one,
 // aborting on first non-empty one, up to top-level node.
 func (c *ZooKeeperBackend) cleanupLogicalPath(path string) error {
 	nodes := strings.Split(path, "/")
@@ -198,7 +210,7 @@ func (c *ZooKeeperBackend) nodePath(key string) string {
 }
 
 // Put is used to insert or update an entry
-func (c *ZooKeeperBackend) Put(entry *physical.Entry) error {
+func (c *ZooKeeperBackend) Put(ctx context.Context, entry *physical.Entry) error {
 	defer metrics.MeasureSince([]string{"zookeeper", "put"}, time.Now())
 
 	// Attempt to set the full path
@@ -213,7 +225,7 @@ func (c *ZooKeeperBackend) Put(entry *physical.Entry) error {
 }
 
 // Get is used to fetch an entry
-func (c *ZooKeeperBackend) Get(key string) (*physical.Entry, error) {
+func (c *ZooKeeperBackend) Get(ctx context.Context, key string) (*physical.Entry, error) {
 	defer metrics.MeasureSince([]string{"zookeeper", "get"}, time.Now())
 
 	// Attempt to read the full path
@@ -240,7 +252,7 @@ func (c *ZooKeeperBackend) Get(key string) (*physical.Entry, error) {
 }
 
 // Delete is used to permanently delete an entry
-func (c *ZooKeeperBackend) Delete(key string) error {
+func (c *ZooKeeperBackend) Delete(ctx context.Context, key string) error {
 	defer metrics.MeasureSince([]string{"zookeeper", "delete"}, time.Now())
 
 	if key == "" {
@@ -263,7 +275,7 @@ func (c *ZooKeeperBackend) Delete(key string) error {
 
 // List is used ot list all the keys under a given
 // prefix, up to the next prefix.
-func (c *ZooKeeperBackend) List(prefix string) ([]string, error) {
+func (c *ZooKeeperBackend) List(ctx context.Context, prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"zookeeper", "list"}, time.Now())
 
 	// Query the children at the full path
@@ -300,7 +312,7 @@ func (c *ZooKeeperBackend) List(prefix string) ([]string, error) {
 			}
 		} else if stat.DataLength == 0 {
 			// No, we cannot differentiate here on number of children as node
-			// can have all it leafs remoed, and it still is a node.
+			// can have all it leafs removed, and it still is a node.
 			children = append(children, key+"/")
 		} else {
 			children = append(children, key[1:])

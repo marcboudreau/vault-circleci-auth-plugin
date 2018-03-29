@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 
 	"github.com/marcboudreau/vault-circleci-auth-plugin/circleci"
+
+	cache "github.com/patrickmn/go-cache"
 )
 
 type backend struct {
@@ -15,12 +18,12 @@ type backend struct {
 	client     Client
 	ProjectMap *framework.PolicyMap
 
-	AttemptedBuilds       *CircleCIBuildList
-	AttemptedBuildsBuffer time.Duration
+	AttemptsCache *cache.Cache
+	CacheExpiry   time.Duration
 }
 
 // Backend creates a new backend with the provided BackendConfig.
-func Backend(c *logical.BackendConfig) *backend {
+func Backend(ctx context.Context, c *logical.BackendConfig) *backend {
 	var b backend
 
 	b.ProjectMap = &framework.PolicyMap{
@@ -30,8 +33,8 @@ func Backend(c *logical.BackendConfig) *backend {
 		DefaultKey: "default",
 	}
 
-	b.AttemptedBuilds = New()
-	b.AttemptedBuildsBuffer = 5 * time.Hour
+	b.AttemptsCache = cache.New(5*time.Hour, cache.NoExpiration)
+	b.CacheExpiry = 5 * time.Hour
 
 	allPaths := append(b.ProjectMap.Paths(), pathConfig(&b), pathLogin(&b))
 
@@ -46,7 +49,7 @@ func Backend(c *logical.BackendConfig) *backend {
 		BackendType: logical.TypeCredential,
 	}
 
-	b.Backend.Setup(c)
+	b.Backend.Setup(ctx, c)
 
 	return &b
 }
@@ -59,12 +62,9 @@ func (b *backend) GetClient(token, vcsType, owner string) Client {
 	return b.client
 }
 
-func (b *backend) RecordAttempt(project string, buildNum int) bool {
-	return b.AttemptedBuilds.Add(project, buildNum)
-}
+func (b *backend) periodicFunc(_ context.Context, _ *logical.Request) error {
+	b.Logger().Trace("periodicFunc called")
+	b.AttemptsCache.DeleteExpired()
 
-func (b *backend) periodicFunc(_ *logical.Request) error {
-	b.Logger().Trace("periodicFunc called with time", time.Now().Add(-b.AttemptedBuildsBuffer).Format(time.UnixDate))
-	b.AttemptedBuilds.Cleanup(time.Now().Add(-b.AttemptedBuildsBuffer), b)
 	return nil
 }

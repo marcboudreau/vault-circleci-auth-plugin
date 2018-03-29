@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -36,7 +37,7 @@ func pathLogin(b *backend) *framework.Path {
 	}
 }
 
-func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathLogin(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	project := d.Get("project").(string)
 	buildNum := d.Get("build_num").(int)
 	vcsRevision := d.Get("vcs_revision").(string)
@@ -46,7 +47,7 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 	}
 
 	var verifyResp *verifyBuildResponse
-	if verifyResponse, resp, err := b.verifyBuild(req, project, buildNum, vcsRevision); err != nil {
+	if verifyResponse, resp, err := b.verifyBuild(ctx, req, project, buildNum, vcsRevision); err != nil {
 		return nil, err
 	} else if resp != nil {
 		return resp, nil
@@ -54,7 +55,7 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 		verifyResp = verifyResponse
 	}
 
-	config, err := b.Config(req.Storage)
+	config, err := b.Config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -84,15 +85,16 @@ func (b *backend) pathLogin(req *logical.Request, d *framework.FieldData) (*logi
 }
 
 func (b *backend) lockBuild(project string, buildNum int) *logical.Response {
-	if !b.RecordAttempt(project, buildNum) {
+	if err := b.AttemptsCache.Add(fmt.Sprintf("%s/%d", project, buildNum), struct{}{}, b.CacheExpiry); err != nil {
+		b.Logger().Trace("Build already in Cache (%s %d)", project, buildNum)
 		return logical.ErrorResponse(
 			"an attempt to authenticate as this build has already been made")
 	}
 	return nil
 }
 
-func (b *backend) verifyBuild(req *logical.Request, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
-	config, err := b.Config(req.Storage)
+func (b *backend) verifyBuild(ctx context.Context, req *logical.Request, project string, buildNum int, vcsRevision string) (*verifyBuildResponse, *logical.Response, error) {
+	config, err := b.Config(ctx, req.Storage)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +130,7 @@ func (b *backend) verifyBuild(req *logical.Request, project string, buildNum int
 		return nil, logical.ErrorResponse("provided VCS revision does not match the revision reported by circleci"), nil
 	}
 
-	projectPolicyList, err := b.ProjectMap.Policies(req.Storage, build.Reponame)
+	projectPolicyList, err := b.ProjectMap.Policies(ctx, req.Storage, build.Reponame)
 
 	return &verifyBuildResponse{
 		Policies: projectPolicyList,

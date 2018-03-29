@@ -1,6 +1,7 @@
 package dynamodb
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/http"
@@ -67,6 +68,11 @@ const (
 	// if a watch fails before trying again.
 	DynamoDBWatchRetryInterval = 5 * time.Second
 )
+
+// Verify DynamoDBBackend satisfies the correct interfaces
+var _ physical.Backend = (*DynamoDBBackend)(nil)
+var _ physical.HABackend = (*DynamoDBBackend)(nil)
+var _ physical.Lock = (*DynamoDBLock)(nil)
 
 // DynamoDBBackend is a physical backend that stores data in
 // a DynamoDB table. It can be run in high-availability mode
@@ -177,6 +183,19 @@ func NewDynamoDBBackend(conf map[string]string, logger log.Logger) (physical.Bac
 		}
 	}
 
+	dynamodbMaxRetryString := os.Getenv("AWS_DYNAMODB_MAX_RETRIES")
+	if dynamodbMaxRetryString == "" {
+		dynamodbMaxRetryString = conf["dynamodb_max_retries"]
+	}
+	var dynamodbMaxRetry int = aws.UseServiceDefaultRetries
+	if dynamodbMaxRetryString != "" {
+		var err error
+		dynamodbMaxRetry, err = strconv.Atoi(dynamodbMaxRetryString)
+		if err != nil {
+			return nil, fmt.Errorf("invalid max retry: %s", dynamodbMaxRetryString)
+		}
+	}
+
 	credsConfig := &awsutil.CredentialsConfig{
 		AccessKey:    accessKey,
 		SecretKey:    secretKey,
@@ -196,7 +215,8 @@ func NewDynamoDBBackend(conf map[string]string, logger log.Logger) (physical.Bac
 		WithEndpoint(endpoint).
 		WithHTTPClient(&http.Client{
 			Transport: pooledTransport,
-		})
+		}).
+		WithMaxRetries(dynamodbMaxRetry)
 	client := dynamodb.New(session.New(awsConf))
 
 	if err := ensureTableExists(client, table, readCapacity, writeCapacity); err != nil {
@@ -231,7 +251,7 @@ func NewDynamoDBBackend(conf map[string]string, logger log.Logger) (physical.Bac
 }
 
 // Put is used to insert or update an entry
-func (d *DynamoDBBackend) Put(entry *physical.Entry) error {
+func (d *DynamoDBBackend) Put(ctx context.Context, entry *physical.Entry) error {
 	defer metrics.MeasureSince([]string{"dynamodb", "put"}, time.Now())
 
 	record := DynamoDBRecord{
@@ -269,7 +289,7 @@ func (d *DynamoDBBackend) Put(entry *physical.Entry) error {
 }
 
 // Get is used to fetch an entry
-func (d *DynamoDBBackend) Get(key string) (*physical.Entry, error) {
+func (d *DynamoDBBackend) Get(ctx context.Context, key string) (*physical.Entry, error) {
 	defer metrics.MeasureSince([]string{"dynamodb", "get"}, time.Now())
 
 	d.permitPool.Acquire()
@@ -302,7 +322,7 @@ func (d *DynamoDBBackend) Get(key string) (*physical.Entry, error) {
 }
 
 // Delete is used to permanently delete an entry
-func (d *DynamoDBBackend) Delete(key string) error {
+func (d *DynamoDBBackend) Delete(ctx context.Context, key string) error {
 	defer metrics.MeasureSince([]string{"dynamodb", "delete"}, time.Now())
 
 	requests := []*dynamodb.WriteRequest{{
@@ -339,7 +359,7 @@ func (d *DynamoDBBackend) Delete(key string) error {
 
 // List is used to list all the keys under a given
 // prefix, up to the next prefix.
-func (d *DynamoDBBackend) List(prefix string) ([]string, error) {
+func (d *DynamoDBBackend) List(ctx context.Context, prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"dynamodb", "list"}, time.Now())
 
 	prefix = strings.TrimSuffix(prefix, "/")
@@ -514,7 +534,7 @@ func (l *DynamoDBLock) Unlock() error {
 	}
 
 	l.held = false
-	if err := l.backend.Delete(l.key); err != nil {
+	if err := l.backend.Delete(context.Background(), l.key); err != nil {
 		return err
 	}
 	return nil
@@ -523,7 +543,7 @@ func (l *DynamoDBLock) Unlock() error {
 // Value checks whether or not the lock is held by any instance of DynamoDBLock,
 // including this one, and returns the current value.
 func (l *DynamoDBLock) Value() (bool, string, error) {
-	entry, err := l.backend.Get(l.key)
+	entry, err := l.backend.Get(context.Background(), l.key)
 	if err != nil {
 		return false, "", err
 	}
