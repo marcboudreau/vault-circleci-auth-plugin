@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -211,7 +212,7 @@ func TestVerifyBuild(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		verifyResponse, resp, err := tc.Backend.verifyBuild(tc.Req, tc.Project, tc.BuildNum, tc.VCSRevision)
+		verifyResponse, resp, err := tc.Backend.verifyBuild(context.TODO(), tc.Req, tc.Project, tc.BuildNum, tc.VCSRevision)
 		if tc.ExpectError {
 			assert.NotNil(t, err)
 			assert.Nil(t, verifyResponse)

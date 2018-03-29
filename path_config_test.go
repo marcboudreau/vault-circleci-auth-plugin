@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -13,7 +14,7 @@ import (
 func TestConfigReturnError(t *testing.T) {
 	var b backend
 
-	config, err := b.Config(GetErrorStorage{})
+	config, err := b.Config(context.TODO(), GetErrorStorage{})
 	assert.NotNil(t, err)
 	assert.Nil(t, config)
 }
@@ -22,14 +23,14 @@ type GetErrorStorage struct {
 	logical.Storage
 }
 
-func (s GetErrorStorage) Get(path string) (*logical.StorageEntry, error) {
+func (s GetErrorStorage) Get(ctx context.Context, path string) (*logical.StorageEntry, error) {
 	return nil, errors.New("Fake error")
 }
 
 func TestConfigReturnInvalidJSON(t *testing.T) {
 	var b backend
 
-	config, err := b.Config(GetInvalidJSONStorage{})
+	config, err := b.Config(context.TODO(), GetInvalidJSONStorage{})
 	assert.NotNil(t, err)
 	assert.Nil(t, config)
 }
@@ -38,7 +39,7 @@ type GetInvalidJSONStorage struct {
 	logical.Storage
 }
 
-func (s GetInvalidJSONStorage) Get(path string) (*logical.StorageEntry, error) {
+func (s GetInvalidJSONStorage) Get(ctxt context.Context, path string) (*logical.StorageEntry, error) {
 	return &logical.StorageEntry{
 		Key:   "config",
 		Value: []byte("bad{json,is what I need"),
@@ -47,7 +48,7 @@ func (s GetInvalidJSONStorage) Get(path string) (*logical.StorageEntry, error) {
 
 func TestConfigReturnValid(t *testing.T) {
 	var b backend
-	config, err := b.Config(GetValidStorage{
+	config, err := b.Config(context.TODO(), GetValidStorage{
 		Entry: &logical.StorageEntry{
 			Key:   "config",
 			Value: []byte("{\"circleci_token\": \"test-token\", \"ttl\": 300, \"max_ttl\": 900}"),
@@ -66,7 +67,7 @@ type GetValidStorage struct {
 	Entry *logical.StorageEntry
 }
 
-func (s GetValidStorage) Get(path string) (*logical.StorageEntry, error) {
+func (s GetValidStorage) Get(ctx context.Context, path string) (*logical.StorageEntry, error) {
 	return s.Entry, nil
 }
 
@@ -155,7 +156,7 @@ func TestPathConfigRead(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		resp, err := b.pathConfigRead(&logical.Request{Storage: tc.storage}, nil)
+		resp, err := b.pathConfigRead(context.TODO(), &logical.Request{Storage: tc.storage}, nil)
 
 		if tc.expectError {
 			assert.NotNil(t, err)
@@ -281,7 +282,7 @@ func TestPathConfigWrite(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		resp, err := b.pathConfigWrite(&logical.Request{Storage: tc.reqStorage}, tc.fieldData)
+		resp, err := b.pathConfigWrite(context.TODO(), &logical.Request{Storage: tc.reqStorage}, tc.fieldData)
 		if tc.expectError {
 			assert.NotNil(t, err)
 			assert.Nil(t, resp)
@@ -301,7 +302,7 @@ type PutSuccessfulStorage struct {
 	logical.Storage
 }
 
-func (s PutSuccessfulStorage) Put(e *logical.StorageEntry) error {
+func (s PutSuccessfulStorage) Put(ctx context.Context, e *logical.StorageEntry) error {
 	return nil
 }
 
@@ -309,6 +310,6 @@ type PutErrorStorage struct {
 	logical.Storage
 }
 
-func (s PutErrorStorage) Put(e *logical.StorageEntry) error {
+func (s PutErrorStorage) Put(ctx context.Context, e *logical.StorageEntry) error {
 	return errors.New("some error")
 }
