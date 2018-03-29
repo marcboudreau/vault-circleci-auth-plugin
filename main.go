@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/url"
 	"os"
 
@@ -29,8 +30,8 @@ func main() {
 }
 
 // Factory constructs the plugin instance with the provided BackendConfig.
-func Factory(c *logical.BackendConfig) (logical.Backend, error) {
-	b := Backend(c)
+func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
+	b := Backend(ctx, c)
 
 	return b.Backend, nil
 }
