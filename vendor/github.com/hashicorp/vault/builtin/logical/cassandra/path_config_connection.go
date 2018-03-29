@@ -1,6 +1,7 @@
 package cassandra
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/fatih/structs"
@@ -85,9 +86,8 @@ take precedence.`,
 	}
 }
 
-func (b *backend) pathConnectionRead(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	entry, err := req.Storage.Get("config/connection")
+func (b *backend) pathConnectionRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	entry, err := req.Storage.Get(ctx, "config/connection")
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +110,7 @@ func (b *backend) pathConnectionRead(
 	}, nil
 }
 
-func (b *backend) pathConnectionWrite(
-	req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathConnectionWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	hosts := data.Get("hosts").(string)
 	username := data.Get("username").(string)
 	password := data.Get("password").(string)
@@ -197,7 +196,7 @@ func (b *backend) pathConnectionWrite(
 	if err != nil {
 		return nil, err
 	}
-	if err := req.Storage.Put(entry); err != nil {
+	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
 
@@ -214,7 +213,7 @@ Configure the connection information to talk to Cassandra.
 const pathConfigConnectionHelpDesc = `
 This path configures the connection information used to connect to Cassandra.
 
-"hosts" is a comma-deliniated list of hostnames in the Cassandra cluster.
+"hosts" is a comma-delimited list of hostnames in the Cassandra cluster.
 
 "username" and "password" are self-explanatory, although the given user
 must have superuser access within Cassandra. Note that since this backend

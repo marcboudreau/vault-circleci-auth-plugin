@@ -1,6 +1,7 @@
 package pki
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"time"
@@ -46,8 +47,7 @@ Defaults to 72 hours.`,
 	}
 }
 
-func (b *backend) pathTidyWrite(
-	req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathTidyWrite(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	safetyBuffer := d.Get("safety_buffer").(int)
 	tidyCertStore := d.Get("tidy_cert_store").(bool)
 	tidyRevocationList := d.Get("tidy_revocation_list").(bool)
@@ -55,13 +55,13 @@ func (b *backend) pathTidyWrite(
 	bufferDuration := time.Duration(safetyBuffer) * time.Second
 
 	if tidyCertStore {
-		serials, err := req.Storage.List("certs/")
+		serials, err := req.Storage.List(ctx, "certs/")
 		if err != nil {
 			return nil, fmt.Errorf("error fetching list of certs: %s", err)
 		}
 
 		for _, serial := range serials {
-			certEntry, err := req.Storage.Get("certs/" + serial)
+			certEntry, err := req.Storage.Get(ctx, "certs/"+serial)
 			if err != nil {
 				return nil, fmt.Errorf("error fetching certificate %s: %s", serial, err)
 			}
@@ -80,7 +80,7 @@ func (b *backend) pathTidyWrite(
 			}
 
 			if time.Now().After(cert.NotAfter.Add(bufferDuration)) {
-				if err := req.Storage.Delete("certs/" + serial); err != nil {
+				if err := req.Storage.Delete(ctx, "certs/"+serial); err != nil {
 					return nil, fmt.Errorf("error deleting serial %s from storage: %s", serial, err)
 				}
 			}
@@ -93,14 +93,14 @@ func (b *backend) pathTidyWrite(
 
 		tidiedRevoked := false
 
-		revokedSerials, err := req.Storage.List("revoked/")
+		revokedSerials, err := req.Storage.List(ctx, "revoked/")
 		if err != nil {
 			return nil, fmt.Errorf("error fetching list of revoked certs: %s", err)
 		}
 
 		var revInfo revocationInfo
 		for _, serial := range revokedSerials {
-			revokedEntry, err := req.Storage.Get("revoked/" + serial)
+			revokedEntry, err := req.Storage.Get(ctx, "revoked/"+serial)
 			if err != nil {
 				return nil, fmt.Errorf("unable to fetch revoked cert with serial %s: %s", serial, err)
 			}
@@ -125,7 +125,7 @@ func (b *backend) pathTidyWrite(
 			}
 
 			if time.Now().After(revokedCert.NotAfter.Add(bufferDuration)) {
-				if err := req.Storage.Delete("revoked/" + serial); err != nil {
+				if err := req.Storage.Delete(ctx, "revoked/"+serial); err != nil {
 					return nil, fmt.Errorf("error deleting serial %s from revoked list: %s", serial, err)
 				}
 				tidiedRevoked = true
@@ -133,7 +133,7 @@ func (b *backend) pathTidyWrite(
 		}
 
 		if tidiedRevoked {
-			if err := buildCRL(b, req); err != nil {
+			if err := buildCRL(ctx, b, req); err != nil {
 				return nil, err
 			}
 		}
@@ -164,7 +164,7 @@ seconds or a string duration like "72h".
 All certificates and/or revocation information currently stored in the backend
 will be checked when this endpoint is hit. The expiration of the
 certificate/revocation information of each certificate being held in
-certificate storage or in revocation infomation will then be checked. If the
+certificate storage or in revocation information will then be checked. If the
 current time, minus the value of 'safety_buffer', is greater than the
 expiration, it will be removed.
 `

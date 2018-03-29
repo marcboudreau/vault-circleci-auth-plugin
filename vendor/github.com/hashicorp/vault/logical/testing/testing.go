@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
@@ -82,7 +83,7 @@ type TestStep struct {
 	// RemoteAddr, if set, will set the remote addr on the request.
 	RemoteAddr string
 
-	// ConnState, if set, will set the tls conneciton state
+	// ConnState, if set, will set the tls connection state
 	ConnState *tls.ConnectionState
 }
 
@@ -145,11 +146,11 @@ func Test(tt TestT, c TestCase) {
 	core, err := vault.NewCore(&vault.CoreConfig{
 		Physical: phys,
 		LogicalBackends: map[string]logical.Factory{
-			"test": func(conf *logical.BackendConfig) (logical.Backend, error) {
+			"test": func(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 				if c.Backend != nil {
 					return c.Backend, nil
 				}
-				return c.Factory(conf)
+				return c.Factory(ctx, conf)
 			},
 		},
 		DisableMlock: true,
@@ -160,7 +161,7 @@ func Test(tt TestT, c TestCase) {
 	}
 
 	// Initialize the core
-	init, err := core.Initialize(&vault.InitParams{
+	init, err := core.Initialize(context.Background(), &vault.InitParams{
 		BarrierConfig: &vault.SealConfig{
 			SecretShares:    1,
 			SecretThreshold: 1,

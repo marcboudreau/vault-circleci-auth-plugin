@@ -1,20 +1,20 @@
 ---
 layout: "api"
-page_title: "Transit Secret Backend - HTTP API"
+page_title: "Transit - Secrets Engines - HTTP API"
 sidebar_current: "docs-http-secret-transit"
 description: |-
-  This is the API documentation for the Vault Transit secret backend.
+  This is the API documentation for the Vault Transit secrets engine.
 ---
 
-# Transit Secret Backend HTTP API
+# Transit Secrets Engine (API)
 
-This is the API documentation for the Vault Transit secret backend. For general
-information about the usage and operation of the Transit backend, please see the
-[Vault Transit backend documentation](/docs/secrets/transit/index.html).
+This is the API documentation for the Vault Transit secrets engine. For general
+information about the usage and operation of the Transit secrets engine, please
+see the [transit documentation](/docs/secrets/transit/index.html).
 
-This documentation assumes the Transit backend is mounted at the `/transit`
-path in Vault. Since it is possible to mount secret backends at any location,
-please update your API calls accordingly.
+This documentation assumes the transit secrets engine is enabled at the
+`/transit` path in Vault. Since it is possible to enable secrets engines at any
+location, please update your API calls accordingly.
 
 ## Create Key
 
@@ -34,10 +34,7 @@ values set here cannot be changed after key creation.
   convergent encryption, where the same plaintext creates the same ciphertext.
   This requires _derived_ to be set to `true`. When enabled, each
   encryption(/decryption/rewrap/datakey) operation will derive a `nonce` value
-  rather than randomly generate it. Note that while this is useful for
-  particular situations, all nonce values used with a given context value **must
-  be unique** or it will compromise the security of your key, and the key space
-  for nonces is 96 bit -- not as large as the AES key itself.
+  rather than randomly generate it.
 
 - `derived` `(bool: false)` – Specifies if key derivation is to be used. If
   enabled, all encrypt/decrypt requests to this named key must provide a context
@@ -53,10 +50,14 @@ values set here cannot be changed after key creation.
 - `type` `(string: "aes256-gcm96")` – Specifies the type of key to create. The
   currently-supported types are:
 
-    - `aes256-gcm96` – AES-256 wrapped with GCM using a 12-byte nonce size
-      (symmetric, supports derivation)
+    - `aes256-gcm96` – AES-256 wrapped with GCM using a 96-bit nonce size AEAD
+      (symmetric, supports derivation and convergent encryption)
+    - `chacha20-poly1305` – ChaCha20-Poly1305 AEAD (symmetric, supports
+      derivation and convergent encryption)
+    - `ed25519` – ED25519 (asymmetric, supports derivation). When using
+      derivation, a sign operation with the same context will derive the same
+      key and signature; this is a signing analogue to `convergent_encryption`.
     - `ecdsa-p256` – ECDSA using the P-256 elliptic curve (asymmetric)
-    - `ed25519` – ED25519 (asymmetric, supports derivation)
     - `rsa-2048` - RSA with bit size of 2048 (asymmetric)
     - `rsa-4096` - RSA with bit size of 4096 (asymmetric)
 
@@ -136,7 +137,6 @@ actual keys themselves).
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
 | `LIST`   | `/transit/keys`              | `200 application/json` |
-| `GET`    | `/transit/keys?list=true`    | `200 application/json` |
 
 ### Sample Request
 
@@ -776,7 +776,7 @@ supports signing.
 
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
-| `POST`   | `/transit/sign/:name(/:algorithm)` | `200 application/json` |
+| `POST`   | `/transit/sign/:name(/:hash_algorithm)` | `200 application/json` |
 
 ### Parameters
 
@@ -787,7 +787,7 @@ supports signing.
   signing. If not set, uses the latest version. Must be greater than or equal
   to the key's `min_encryption_version`, if set.
 
-- `algorithm` `(string: "sha2-256")` – Specifies the hash algorithm to use for
+- `hash_algorithm` `(string: "sha2-256")` – Specifies the hash algorithm to use for
   supporting key types (notably, not including `ed25519` which specifies its
   own hash algorithm). This can also be specified as part of the URL.
   Currently-supported algorithms are:
@@ -805,7 +805,13 @@ supports signing.
 
 - `prehashed` `(bool: false)` - Set to `true` when the input is already
    hashed. If the key type is `rsa-2048` or `rsa-4096`, then the algorithm used
-   to hash the input should be indicated by the `algorithm` parameter.
+   to hash the input should be indicated by the `hash_algorithm` parameter.
+
+- `signature_algorithm` `(string: "pss")` – When using a RSA key, specifies the RSA
+  signature algorithm to use for signing. Supported signature types are:
+
+    - `pss`
+    - `pkcs1v15`
 
 
 ### Sample Payload
@@ -843,14 +849,14 @@ data.
 
 | Method   | Path                         | Produces               |
 | :------- | :--------------------------- | :--------------------- |
-| `POST`   | `/transit/verify/:name(/:algorithm)` | `200 application/json` |
+| `POST`   | `/transit/verify/:name(/:hash_algorithm)` | `200 application/json` |
 
 ### Parameters
 
 - `name` `(string: <required>)` – Specifies the name of the encryption key that
   was used to generate the signature or HMAC.
 
-- `algorithm` `(string: "sha2-256")` – Specifies the hash algorithm to use. This
+- `hash_algorithm` `(string: "sha2-256")` – Specifies the hash algorithm to use. This
   can also be specified as part of the URL. Currently-supported algorithms are:
 
     - `sha2-224`
@@ -874,7 +880,14 @@ data.
 
 - `prehashed` `(bool: false)` - Set to `true` when the input is already
    hashed. If the key type is `rsa-2048` or `rsa-4096`, then the algorithm used
-   to hash the input should be indicated by the `algorithm` parameter.
+   to hash the input should be indicated by the `hash_algorithm` parameter.
+
+- `signature_algorithm` `(string: "pss")` – When using a RSA key, specifies the RSA
+  signature algorithm to use for signature verification. Supported signature types
+  are:
+
+    - `pss`
+    - `pkcs1v15`
 
 ### Sample Payload
 

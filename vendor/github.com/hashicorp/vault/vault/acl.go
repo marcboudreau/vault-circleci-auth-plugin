@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -356,7 +357,7 @@ CHECK:
 		}
 
 		for parameter, value := range req.Data {
-			// Check if parameter has been explictly denied
+			// Check if parameter has been explicitly denied
 			if valueSlice, ok := permissions.DeniedParameters[strings.ToLower(parameter)]; ok {
 				// If the value exists in denied values slice, deny
 				if valueInParameterList(value, valueSlice) {
@@ -396,7 +397,7 @@ CHECK:
 	ret.Allowed = true
 	return
 }
-func (c *Core) performPolicyChecks(acl *ACL, te *TokenEntry, req *logical.Request, inEntity *identity.Entity, opts *PolicyCheckOpts) (ret *AuthResults) {
+func (c *Core) performPolicyChecks(ctx context.Context, acl *ACL, te *TokenEntry, req *logical.Request, inEntity *identity.Entity, opts *PolicyCheckOpts) (ret *AuthResults) {
 	ret = new(AuthResults)
 
 	// First, perform normal ACL checks if requested. The only time no ACL

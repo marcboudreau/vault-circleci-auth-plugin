@@ -1,6 +1,7 @@
 package transit
 
 import (
+	"context"
 	"testing"
 
 	"github.com/hashicorp/vault/logical"
@@ -9,6 +10,7 @@ import (
 func TestTransit_BackupRestore(t *testing.T) {
 	// Test encryption/decryption after a restore for supported keys
 	testBackupRestore(t, "aes256-gcm96", "encrypt-decrypt")
+	testBackupRestore(t, "chacha20-poly1305", "encrypt-decrypt")
 	testBackupRestore(t, "rsa-2048", "encrypt-decrypt")
 	testBackupRestore(t, "rsa-4096", "encrypt-decrypt")
 
@@ -20,6 +22,7 @@ func TestTransit_BackupRestore(t *testing.T) {
 
 	// Test HMAC/verification after a restore for all key types
 	testBackupRestore(t, "aes256-gcm96", "hmac-verify")
+	testBackupRestore(t, "chacha20-poly1305", "hmac-verify")
 	testBackupRestore(t, "ecdsa-p256", "hmac-verify")
 	testBackupRestore(t, "ed25519", "hmac-verify")
 	testBackupRestore(t, "rsa-2048", "hmac-verify")
@@ -42,7 +45,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 			"exportable": true,
 		},
 	}
-	resp, err = b.HandleRequest(keyReq)
+	resp, err = b.HandleRequest(context.Background(), keyReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
@@ -57,7 +60,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 			"allow_plaintext_backup": true,
 		},
 	}
-	resp, err = b.HandleRequest(configReq)
+	resp, err = b.HandleRequest(context.Background(), configReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
@@ -68,7 +71,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 		Operation: logical.ReadOperation,
 		Storage:   s,
 	}
-	resp, err = b.HandleRequest(backupReq)
+	resp, err = b.HandleRequest(context.Background(), backupReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
@@ -84,7 +87,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 			"backup": backup,
 		},
 	}
-	resp, err = b.HandleRequest(restoreReq)
+	resp, err = b.HandleRequest(context.Background(), restoreReq)
 	if resp != nil && resp.IsError() {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
@@ -107,7 +110,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 				"plaintext": plaintextB64,
 			},
 		}
-		resp, err = b.HandleRequest(encryptReq)
+		resp, err = b.HandleRequest(context.Background(), encryptReq)
 		if err != nil || (resp != nil && resp.IsError()) {
 			t.Fatalf("resp: %#v\nerr: %v", resp, err)
 		}
@@ -122,7 +125,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 				"input": plaintextB64,
 			},
 		}
-		resp, err = b.HandleRequest(signReq)
+		resp, err = b.HandleRequest(context.Background(), signReq)
 		if err != nil || (resp != nil && resp.IsError()) {
 			t.Fatalf("resp: %#v\nerr: %v", resp, err)
 		}
@@ -137,7 +140,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 				"input": plaintextB64,
 			},
 		}
-		resp, err = b.HandleRequest(hmacReq)
+		resp, err = b.HandleRequest(context.Background(), hmacReq)
 		if err != nil || (resp != nil && resp.IsError()) {
 			t.Fatalf("resp: %#v\nerr: %v", resp, err)
 		}
@@ -146,13 +149,13 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 
 	// Delete the key
 	keyReq.Operation = logical.DeleteOperation
-	resp, err = b.HandleRequest(keyReq)
+	resp, err = b.HandleRequest(context.Background(), keyReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
 
 	// Restore the key from the backup
-	resp, err = b.HandleRequest(restoreReq)
+	resp, err = b.HandleRequest(context.Background(), restoreReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
@@ -172,7 +175,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 					"ciphertext": ciphertext,
 				},
 			}
-			resp, err = b.HandleRequest(decryptReq)
+			resp, err = b.HandleRequest(context.Background(), decryptReq)
 			if err != nil || (resp != nil && resp.IsError()) {
 				t.Fatalf("resp: %#v\nerr: %v", resp, err)
 			}
@@ -190,7 +193,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 					"input":     plaintextB64,
 				},
 			}
-			resp, err = b.HandleRequest(verifyReq)
+			resp, err = b.HandleRequest(context.Background(), verifyReq)
 			if err != nil || (resp != nil && resp.IsError()) {
 				t.Fatalf("resp: %#v\nerr: %v", resp, err)
 			}
@@ -208,7 +211,7 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 					"input": plaintextB64,
 				},
 			}
-			resp, err = b.HandleRequest(verifyReq)
+			resp, err = b.HandleRequest(context.Background(), verifyReq)
 			if err != nil || (resp != nil && resp.IsError()) {
 				t.Fatalf("resp: %#v\nerr: %v", resp, err)
 			}
@@ -222,14 +225,14 @@ func testBackupRestore(t *testing.T, keyType, feature string) {
 	validationFunc("test")
 
 	// Delete the key again
-	resp, err = b.HandleRequest(keyReq)
+	resp, err = b.HandleRequest(context.Background(), keyReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}
 
 	// Restore the key under a different name
 	restoreReq.Path = "restore/test1"
-	resp, err = b.HandleRequest(restoreReq)
+	resp, err = b.HandleRequest(context.Background(), restoreReq)
 	if err != nil || (resp != nil && resp.IsError()) {
 		t.Fatalf("resp: %#v\nerr: %v", resp, err)
 	}

@@ -2,7 +2,9 @@ package ldap
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"math"
 	"text/template"
 
 	"github.com/go-ldap/ldap"
@@ -12,9 +14,9 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-func Factory(conf *logical.BackendConfig) (logical.Backend, error) {
+func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := Backend()
-	if err := b.Setup(conf); err != nil {
+	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -92,9 +94,9 @@ func EscapeLDAPValue(input string) string {
 	return input
 }
 
-func (b *backend) Login(req *logical.Request, username string, password string) ([]string, *logical.Response, []string, error) {
+func (b *backend) Login(ctx context.Context, req *logical.Request, username string, password string) ([]string, *logical.Response, []string, error) {
 
-	cfg, err := b.Config(req)
+	cfg, err := b.Config(ctx, req)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -172,7 +174,7 @@ func (b *backend) Login(req *logical.Request, username string, password string) 
 
 	var allGroups []string
 	// Import the custom added groups from ldap backend
-	user, err := b.User(req.Storage, username)
+	user, err := b.User(ctx, req.Storage, username)
 	if err == nil && user != nil && user.Groups != nil {
 		if b.Logger().IsDebug() {
 			b.Logger().Debug("auth/ldap: adding local groups", "num_local_groups", len(user.Groups), "local_groups", user.Groups)
@@ -185,7 +187,7 @@ func (b *backend) Login(req *logical.Request, username string, password string) 
 	// Retrieve policies
 	var policies []string
 	for _, groupName := range allGroups {
-		group, err := b.Group(req.Storage, groupName)
+		group, err := b.Group(ctx, req.Storage, groupName)
 		if err == nil && group != nil {
 			policies = append(policies, group.Policies...)
 		}
@@ -261,9 +263,10 @@ func (b *backend) getUserBindDN(cfg *ConfigEntry, c *ldap.Conn, username string)
 			b.Logger().Debug("auth/ldap: Discovering user", "userdn", cfg.UserDN, "filter", filter)
 		}
 		result, err := c.Search(&ldap.SearchRequest{
-			BaseDN: cfg.UserDN,
-			Scope:  2, // subtree
-			Filter: filter,
+			BaseDN:    cfg.UserDN,
+			Scope:     2, // subtree
+			Filter:    filter,
+			SizeLimit: math.MaxInt32,
 		})
 		if err != nil {
 			return bindDN, fmt.Errorf("LDAP search for binddn failed: %v", err)
@@ -295,9 +298,10 @@ func (b *backend) getUserDN(cfg *ConfigEntry, c *ldap.Conn, bindDN string) (stri
 			b.Logger().Debug("auth/ldap: Searching UPN", "userdn", cfg.UserDN, "filter", filter)
 		}
 		result, err := c.Search(&ldap.SearchRequest{
-			BaseDN: cfg.UserDN,
-			Scope:  2, // subtree
-			Filter: filter,
+			BaseDN:    cfg.UserDN,
+			Scope:     2, // subtree
+			Filter:    filter,
+			SizeLimit: math.MaxInt32,
 		})
 		if err != nil {
 			return userDN, fmt.Errorf("LDAP search failed for detecting user: %v", err)
@@ -380,6 +384,7 @@ func (b *backend) getLdapGroups(cfg *ConfigEntry, c *ldap.Conn, userDN string, u
 		Attributes: []string{
 			cfg.GroupAttr,
 		},
+		SizeLimit: math.MaxInt32,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("LDAP search failed: %v", err)
@@ -420,5 +425,5 @@ to set of policies.
 
 Configuration of the server is done through the "config" and "groups"
 endpoints by a user with root access. Authentication is then done
-by suppying the two fields for "login".
+by supplying the two fields for "login".
 `

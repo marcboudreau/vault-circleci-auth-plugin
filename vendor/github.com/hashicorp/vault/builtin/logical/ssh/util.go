@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -45,10 +46,10 @@ func generateRSAKeys(keyBits int) (publicKeyRsa string, privateKeyRsa string, er
 // authorized_keys file is hard coded to resemble Linux.
 //
 // The last param 'install' if false, uninstalls the key.
-func (b *backend) installPublicKeyInTarget(adminUser, username, ip string, port int, hostkey, dynamicPublicKey, installScript string, install bool) error {
+func (b *backend) installPublicKeyInTarget(ctx context.Context, adminUser, username, ip string, port int, hostkey, dynamicPublicKey, installScript string, install bool) error {
 	// Transfer the newly generated public key to remote host under a random
 	// file name. This is to avoid name collisions from other requests.
-	_, publicKeyFileName, err := b.GenerateSaltedOTP()
+	_, publicKeyFileName, err := b.GenerateSaltedOTP(ctx)
 	if err != nil {
 		return err
 	}
@@ -105,7 +106,7 @@ func (b *backend) installPublicKeyInTarget(adminUser, username, ip string, port 
 
 // Takes an IP address and role name and checks if the IP is part
 // of CIDR blocks belonging to the role.
-func roleContainsIP(s logical.Storage, roleName string, ip string) (bool, error) {
+func roleContainsIP(ctx context.Context, s logical.Storage, roleName string, ip string) (bool, error) {
 	if roleName == "" {
 		return false, fmt.Errorf("missing role name")
 	}
@@ -114,7 +115,7 @@ func roleContainsIP(s logical.Storage, roleName string, ip string) (bool, error)
 		return false, fmt.Errorf("missing ip")
 	}
 
-	roleEntry, err := s.Get(fmt.Sprintf("roles/%s", roleName))
+	roleEntry, err := s.Get(ctx, fmt.Sprintf("roles/%s", roleName))
 	if err != nil {
 		return false, fmt.Errorf("error retrieving role %v", err)
 	}

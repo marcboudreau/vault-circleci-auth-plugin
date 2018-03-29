@@ -20,12 +20,12 @@ import (
 
 const (
 	// Ideally, this prefix would match the "_" used in the file backend, but
-	// that prefix has special meaining in etcd. Specifically, it excludes those
+	// that prefix has special meaning in etcd. Specifically, it excludes those
 	// entries from directory listings.
 	Etcd2NodeFilePrefix = "."
 
 	// The lock prefix can (and probably should) cause an entry to be excluded
-	// from diretory listings, so "_" works here.
+	// from directory listings, so "_" works here.
 	Etcd2NodeLockPrefix = "_"
 
 	// The delimiter is the same as the `-C` flag of etcdctl.
@@ -54,6 +54,11 @@ type Etcd2Backend struct {
 	logger     log.Logger
 	haEnabled  bool
 }
+
+// Verify Etcd2Backend satisfies the correct interfaces
+var _ physical.Backend = (*Etcd2Backend)(nil)
+var _ physical.HABackend = (*Etcd2Backend)(nil)
+var _ physical.Lock = (*Etcd2Lock)(nil)
 
 func newEtcd2Backend(conf map[string]string, logger log.Logger) (physical.Backend, error) {
 	// Get the etcd path form the configuration.
@@ -170,7 +175,7 @@ func newEtcdV2Client(conf map[string]string) (client.Client, error) {
 }
 
 // Put is used to insert or update an entry.
-func (c *Etcd2Backend) Put(entry *physical.Entry) error {
+func (c *Etcd2Backend) Put(ctx context.Context, entry *physical.Entry) error {
 	defer metrics.MeasureSince([]string{"etcd", "put"}, time.Now())
 	value := base64.StdEncoding.EncodeToString(entry.Value)
 
@@ -182,7 +187,7 @@ func (c *Etcd2Backend) Put(entry *physical.Entry) error {
 }
 
 // Get is used to fetch an entry.
-func (c *Etcd2Backend) Get(key string) (*physical.Entry, error) {
+func (c *Etcd2Backend) Get(ctx context.Context, key string) (*physical.Entry, error) {
 	defer metrics.MeasureSince([]string{"etcd", "get"}, time.Now())
 
 	c.permitPool.Acquire()
@@ -214,7 +219,7 @@ func (c *Etcd2Backend) Get(key string) (*physical.Entry, error) {
 }
 
 // Delete is used to permanently delete an entry.
-func (c *Etcd2Backend) Delete(key string) error {
+func (c *Etcd2Backend) Delete(ctx context.Context, key string) error {
 	defer metrics.MeasureSince([]string{"etcd", "delete"}, time.Now())
 
 	c.permitPool.Acquire()
@@ -233,7 +238,7 @@ func (c *Etcd2Backend) Delete(key string) error {
 
 // List is used to list all the keys under a given prefix, up to the next
 // prefix.
-func (c *Etcd2Backend) List(prefix string) ([]string, error) {
+func (c *Etcd2Backend) List(ctx context.Context, prefix string) ([]string, error) {
 	defer metrics.MeasureSince([]string{"etcd", "list"}, time.Now())
 
 	// Set a directory path from the given prefix.
@@ -285,7 +290,7 @@ func (b *Etcd2Backend) nodePathDir(key string) string {
 }
 
 // nodePathLock returns an etcd directory path used specifically for semaphore
-// indicies based on the given key.
+// indices based on the given key.
 func (b *Etcd2Backend) nodePathLock(key string) string {
 	return filepath.Join(b.path, filepath.Dir(key), Etcd2NodeLockPrefix+filepath.Base(key)+"/")
 }
@@ -305,7 +310,7 @@ func (e *Etcd2Backend) HAEnabled() bool {
 	return e.haEnabled
 }
 
-// Etcd2Lock emplements a lock using and Etcd2 backend.
+// Etcd2Lock implements a lock using and Etcd2 backend.
 type Etcd2Lock struct {
 	kAPI                                 client.KeysAPI
 	value, semaphoreDirKey, semaphoreKey string
@@ -367,7 +372,7 @@ func (c *Etcd2Lock) isHeld() (bool, error) {
 		return false, nil
 	}
 
-	// Get the key of the curren holder of the lock.
+	// Get the key of the current holder of the lock.
 	currentSemaphoreKey, _, _, err := c.getSemaphoreKey()
 	if err != nil {
 		return false, err

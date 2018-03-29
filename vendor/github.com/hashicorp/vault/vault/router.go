@@ -1,9 +1,11 @@
 package vault
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/armon/go-metrics"
@@ -18,7 +20,7 @@ type Router struct {
 	root               *radix.Tree
 	mountUUIDCache     *radix.Tree
 	mountAccessorCache *radix.Tree
-	tokenStoreSaltFunc func() (*salt.Salt, error)
+	tokenStoreSaltFunc func(context.Context) (*salt.Salt, error)
 	// storagePrefix maps the prefix used for storage (ala the BarrierView)
 	// to the backend. This is used to map a key back into the backend that owns it.
 	// For example, logical/uuid1/foobar -> secrets/ (kv backend) + foobar
@@ -43,8 +45,8 @@ type routeEntry struct {
 	mountEntry    *MountEntry
 	storageView   logical.Storage
 	storagePrefix string
-	rootPaths     *radix.Tree
-	loginPaths    *radix.Tree
+	rootPaths     atomic.Value
+	loginPaths    atomic.Value
 }
 
 type validateMountResponse struct {
@@ -94,7 +96,6 @@ func (r *Router) Mount(backend logical.Backend, prefix string, mountEntry *Mount
 	}
 
 	// Build the paths
-	var localView logical.Storage = storageView
 	paths := new(logical.Paths)
 	if backend != nil {
 		specialPaths := backend.SpecialPaths()
@@ -109,10 +110,10 @@ func (r *Router) Mount(backend logical.Backend, prefix string, mountEntry *Mount
 		backend:       backend,
 		mountEntry:    mountEntry,
 		storagePrefix: storageView.prefix,
-		storageView:   localView,
-		rootPaths:     pathsToRadix(paths.Root),
-		loginPaths:    pathsToRadix(paths.Unauthenticated),
+		storageView:   storageView,
 	}
+	re.rootPaths.Store(pathsToRadix(paths.Root))
+	re.loginPaths.Store(pathsToRadix(paths.Unauthenticated))
 
 	switch {
 	case prefix == "":
@@ -134,7 +135,7 @@ func (r *Router) Mount(backend logical.Backend, prefix string, mountEntry *Mount
 }
 
 // Unmount is used to remove a logical backend from a given prefix
-func (r *Router) Unmount(prefix string) error {
+func (r *Router) Unmount(ctx context.Context, prefix string) error {
 	r.l.Lock()
 	defer r.l.Unlock()
 
@@ -147,7 +148,7 @@ func (r *Router) Unmount(prefix string) error {
 	// Call backend's Cleanup routine
 	re := raw.(*routeEntry)
 	if re.backend != nil {
-		re.backend.Cleanup()
+		re.backend.Cleanup(ctx)
 	}
 
 	// Purge from the radix trees
@@ -368,18 +369,18 @@ func (r *Router) matchingStoragePrefix(path string, apiPath bool) (string, strin
 }
 
 // Route is used to route a given request
-func (r *Router) Route(req *logical.Request) (*logical.Response, error) {
-	resp, _, _, err := r.routeCommon(req, false)
+func (r *Router) Route(ctx context.Context, req *logical.Request) (*logical.Response, error) {
+	resp, _, _, err := r.routeCommon(ctx, req, false)
 	return resp, err
 }
 
 // Route is used to route a given existence check request
-func (r *Router) RouteExistenceCheck(req *logical.Request) (bool, bool, error) {
-	_, ok, exists, err := r.routeCommon(req, true)
+func (r *Router) RouteExistenceCheck(ctx context.Context, req *logical.Request) (bool, bool, error) {
+	_, ok, exists, err := r.routeCommon(ctx, req, true)
 	return ok, exists, err
 }
 
-func (r *Router) routeCommon(req *logical.Request, existenceCheck bool) (*logical.Response, bool, bool, error) {
+func (r *Router) routeCommon(ctx context.Context, req *logical.Request, existenceCheck bool) (*logical.Response, bool, bool, error) {
 	// Find the mount point
 	r.l.RLock()
 	adjustedPath := req.Path
@@ -446,7 +447,7 @@ func (r *Router) routeCommon(req *logical.Request, existenceCheck bool) (*logica
 	case strings.HasPrefix(originalPath, "cubbyhole/"):
 		// In order for the token store to revoke later, we need to have the same
 		// salted ID, so we double-salt what's going to the cubbyhole backend
-		salt, err := r.tokenStoreSaltFunc()
+		salt, err := r.tokenStoreSaltFunc(ctx)
 		if err != nil {
 			return nil, false, false, err
 		}
@@ -504,10 +505,10 @@ func (r *Router) routeCommon(req *logical.Request, existenceCheck bool) (*logica
 
 	// Invoke the backend
 	if existenceCheck {
-		ok, exists, err := re.backend.HandleExistenceCheck(req)
+		ok, exists, err := re.backend.HandleExistenceCheck(ctx, req)
 		return nil, ok, exists, err
 	} else {
-		resp, err := re.backend.HandleRequest(req)
+		resp, err := re.backend.HandleRequest(ctx, req)
 		// When a token gets renewed, the request hits this path and reaches
 		// token store. Token store delegates the renewal to the expiration
 		// manager. Expiration manager in-turn creates a different logical
@@ -547,7 +548,8 @@ func (r *Router) RootPath(path string) bool {
 	remain := strings.TrimPrefix(path, mount)
 
 	// Check the rootPaths of this backend
-	match, raw, ok := re.rootPaths.LongestPrefix(remain)
+	rootPaths := re.rootPaths.Load().(*radix.Tree)
+	match, raw, ok := rootPaths.LongestPrefix(remain)
 	if !ok {
 		return false
 	}
@@ -576,7 +578,8 @@ func (r *Router) LoginPath(path string) bool {
 	remain := strings.TrimPrefix(path, mount)
 
 	// Check the loginPaths of this backend
-	match, raw, ok := re.loginPaths.LongestPrefix(remain)
+	loginPaths := re.loginPaths.Load().(*radix.Tree)
+	match, raw, ok := loginPaths.LongestPrefix(remain)
 	if !ok {
 		return false
 	}
