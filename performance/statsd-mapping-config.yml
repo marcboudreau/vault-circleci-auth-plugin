@@ -1,0 +1,5 @@
+mappings:
+- match: .
+  match_type: regex
+  action: map
+  

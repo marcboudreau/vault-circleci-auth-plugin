@@ -1,0 +1,23 @@
+version: '3.5'
+services:
+  prometheus:
+    image: prom/prometheus:v2.2.1
+    volumes:
+      - ./prometheus.yml:/prometheus.yml
+    command: --config.file=/prometheus.yml
+    ports:
+      - "9090:9090"
+  vault:
+    image: marcboudreau/vault-circleci-auth-plugin:latest
+    volumes:
+      - ./telemetry.json:/vault/config/telemetry.json
+    ports:
+      - "8200:8200"
+  mock-circleci:
+    image: marcboudreau/dumb-server:latest
+    command: -sc 200 -resp /response -port 7979
+    volumes:
+      - ./response:/response
+  statsd-exporter:
+    image: prom/statsd-exporter:v0.6.0
+    command: -statsd.listen-udp=":9125" -statsd.listen-tcp=":9125" -web.listen-address=":9102" -web.telemetry-path="/metrics"

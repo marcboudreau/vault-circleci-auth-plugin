@@ -29,7 +29,7 @@ Request parameters:
 
 * **max_ttl** is a time duration that sets the largest *ttl* that a new token can be assigned in this plugin.
 
-* **attempts_cache_time** is the time duration that the backend caches login attempts.  Defaults to `18000s` (5 hours).
+* **attempt_cache_expiry** is the time duration that the backend caches login attempts.  Defaults to `18000s` (5 hours).
 
 The plugin caches login attempts for and an approximate duration of **attempts_cache_time**.
 The longer this duration, the greater the memory requirement will be.  However, in order
