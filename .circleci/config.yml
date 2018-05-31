@@ -3,31 +3,50 @@ jobs:
   build:
     working_directory: ~/vault-circleci-auth-plugin
     docker:
-      - image: docker:18.03.0-ce
+      - image: golang:1.10
     steps:
       - checkout
+      - make
+  test:
+    working_directory: ~/vault-circleci-auth-plugin/integration-test
+    docker:
+      - image: docker:18.05.0-ce
+    steps:
       - setup_remote_docker
       - run:
-          name: Build plugin
-          command: docker build -f Dockerfile -t marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) .
-      - run:
-          name: Extract plugin binary
-          command: |
-            docker create --name build marcboudreau/vault-circleci-auth-plugin:$(cat version.txt)
-            docker cp build:/vault/plugins/vault-circleci-auth-plugin .
-            docker rm build
-      - run:
           name: Integration Test
-          working_directory: ~/vault-circleci-auth-plugin/integration-test
           command: |
             apk add --update-cache bash jq
             ./tests.sh
+  release:
+    working_directory: ~/vault-circleci-auth-plugin
+    docker:
+      - image: golang:1.10
+    steps:
       - run:
-          name: Push to DockerHub
+          name: Installing github-release
           command: |
-            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
-            if [[ $CIRCLE_BRANCH == master ]]; then
-              docker tag marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) marcboudreau/vault-circleci-auth-plugin:latest
-            fi
-            docker push marcboudreau/vault-circleci-auth-plugin
-      
+            apt-get update
+            apt-get install -y bzip2
+            wget -O github-release.tar.bz2 https://github.com/aktau/github-release/releases/download/v0.7.2/linux-amd64-github-release.tar.bz2
+            bzip2 -d github-release.tar.bz2
+            tar xf github-release.tar
+            ln -s ./bin/linux/amd64/github-release /usr/bin/github-release
+      - make release
+  publish:
+    working_directory: ~/vault-circleci-auth-plugin
+    docker:
+      - image: docker:18.05.0-ce-git
+    steps:
+      - setup_remote_docker
+      - run:
+          name: Install make
+          command: |
+            apk --no-cache add make
+      - make docker 
+workflows:
+  version: 2
+  build_and_release:
+    jobs:
+      build:
+
