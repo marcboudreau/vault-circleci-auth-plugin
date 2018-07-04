@@ -19,7 +19,7 @@ Request parameters:
 
 * **circleci_token** is a CircleCI personal API token that allows the plugin to make API calls to CircleCI.
 
-* **base_url** (optional) is an alternate base URL where CircleCI API calls are sent.  Defaults to `https://circleci.com/api/v1.1`.
+* **base_url** (optional) is an alternate base URL where CircleCI API calls are sent. This parameter must end up with a slash.  Defaults to `https://circleci.com/api/v1.1/`.
 
 * **vcs_type** is a value indicating the Version Control System type of the project builds being looked up in CircleCI's API.  Valid values are `github` and `bitbucket`.
 
@@ -47,7 +47,7 @@ Request parameters:
 
 * **project** is the name of the CircleCI project being mapped to specific policies.
 
-* **values** is a comma separated list of policy names to map to the specified project.
+* **value** is a comma separated list of policy names to map to the specified project.
 
 ## Authentication
 
