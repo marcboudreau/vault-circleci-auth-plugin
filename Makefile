@@ -53,9 +53,9 @@ test:
 	go test -v -race ./...
 
 tag:
-	git semver patch
+	git semver $(RELEASE)
 	
-release: clean all tag
+release: all tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
 	git log --format=%B $(shell git semver get) -1 | \
 		github-release release -u $(USER) -r $(EXECUTABLE) \
