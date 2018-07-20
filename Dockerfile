@@ -1,12 +1,9 @@
-FROM golang:1.9-alpine as build
+FROM golang:alpine AS build
 
 WORKDIR /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/
+COPY . /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/
 
-COPY ./ /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/
-
-RUN go test -v ./...
-
-RUN go build
+RUN go build -o vault-circleci-auth-plugin
 
 FROM vault:latest
 
@@ -18,7 +15,7 @@ RUN mkdir /vault/plugins
 
 COPY launch.sh /launch.sh
 
-COPY --from=build /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/vault-circleci-auth-plugin /vault/plugins/
+COPY --from=build /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/vault-circleci-auth-plugin /vault/plugins
 
 RUN chown vault:vault /vault/plugins/vault-circleci-auth-plugin
 

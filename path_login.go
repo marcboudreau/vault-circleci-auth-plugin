@@ -42,8 +42,11 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, d *framew
 	buildNum := d.Get("build_num").(int)
 	vcsRevision := d.Get("vcs_revision").(string)
 
-	if err := b.lockBuild(project, buildNum); err != nil {
-		return err, nil
+	s := fmt.Sprintf("%#v", req)
+	b.Logger().Debug("pathLogin - Request: %s", s)
+
+	if resp := b.lockBuild(project, buildNum); resp != nil {
+		return resp, nil
 	}
 
 	var verifyResp *verifyBuildResponse
@@ -86,7 +89,7 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, d *framew
 
 func (b *backend) lockBuild(project string, buildNum int) *logical.Response {
 	if err := b.AttemptsCache.Add(fmt.Sprintf("%s/%d", project, buildNum), struct{}{}, b.CacheExpiry); err != nil {
-		b.Logger().Trace("Build already in Cache (%s %d)", project, buildNum)
+		b.Logger().Debug("Build already in Cache (%s %d)", project, buildNum)
 		return logical.ErrorResponse(
 			"an attempt to authenticate as this build has already been made")
 	}
@@ -117,7 +120,7 @@ func (b *backend) verifyBuild(ctx context.Context, req *logical.Request, project
 
 	build, err := client.GetBuild(project, buildNum)
 	if err != nil {
-		return nil, nil, err
+		return nil, logical.ErrorResponse(err.Error()), nil
 	}
 
 	// Make sure the build is still running

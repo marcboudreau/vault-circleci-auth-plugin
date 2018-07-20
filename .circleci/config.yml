@@ -3,31 +3,47 @@ jobs:
   build:
     working_directory: ~/vault-circleci-auth-plugin
     docker:
-      - image: docker:18.03.0-ce
+      - image: docker:stable-git
     steps:
       - checkout
       - setup_remote_docker
       - run:
-          name: Build plugin
-          command: docker build -f Dockerfile -t marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) .
-      - run:
-          name: Extract plugin binary
+          name: Build All Platforms
           command: |
-            docker create --name build marcboudreau/vault-circleci-auth-plugin:$(cat version.txt)
-            docker cp build:/vault/plugins/vault-circleci-auth-plugin .
-            docker rm build
+            work_dir=/usr/local/go/src/github.com/marcboudreau/vault-circleci-auth-plugin
+            container_id=$(docker create \
+                -w $work_dir \
+                golang:latest make)
+            docker cp . $container_id:$work_dir
+            docker start -a $container_id
+            docker cp $container_id:$work_dir/bin ./
+            docker rm -f $container_id
       - run:
-          name: Integration Test
-          working_directory: ~/vault-circleci-auth-plugin/integration-test
+          name: Building Docker Image
           command: |
-            apk add --update-cache bash jq
-            ./tests.sh
+            docker build -t vault-circleci-auth-plugin:test .
       - run:
-          name: Push to DockerHub
+          name: Running Tests
           command: |
-            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
-            if [[ $CIRCLE_BRANCH == master ]]; then
-              docker tag marcboudreau/vault-circleci-auth-plugin:$(cat version.txt) marcboudreau/vault-circleci-auth-plugin:latest
+            apk add --no-cache bash jq
+            ./integration-test/tests.sh
+      - run:
+          name: Release
+          command: |
+            if [[ $CIRCLE_BRANCH == "master" ]]; then
+              git clone https://github.com/markchalloner/git-semver.git && git-semver/install.sh
+              RELEASE=$(curl -s \
+                          https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/commits/$CIRCLE_SHA1 \
+                          | jq .commit.message \
+                          | sed -n 's/.*\[release \(.*\)\].*/\1/p')
+              export RELEASE=${RELEASE:-patch}
+              make release
+
+              git push --tags
+
+              docker tag vault-circleci-auth-plugin:test marcboudreau/vault-circleci-auth-plugin:$(git semver get)
+              docker tag vault-circleci-auth-plugin:test marcboudreau/vault-circleci-auth-plugin:latest
+
+              echo $DOCKER_PASSWORD | docker login -u $DOCKER_USER --password-stdin
+              docker push marcboudreau/vault-circleci-auth-plugin
             fi
-            docker push marcboudreau/vault-circleci-auth-plugin
-      

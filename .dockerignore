@@ -1,6 +1,7 @@
 .circleci
 .git
 .gitignore
+bin/
 Dockerfile.build
 LICENSE
 README.md
