@@ -31,7 +31,7 @@ jobs:
           name: Release
           command: |
             if [[ $CIRCLE_BRANCH == "master" ]]; then
-              apk add --no-cache curl
+              apk add --no-cache curl make
               git clone https://github.com/markchalloner/git-semver.git && git-semver/install.sh
               RELEASE=$(curl -s \
                           https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/commits/$CIRCLE_SHA1 \
