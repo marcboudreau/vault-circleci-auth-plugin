@@ -1,24 +1,23 @@
 USER := marcboudreau
 EXECUTABLE := vault-circleci-auth-plugin
+RELEASE ?= patch
 
 UNIX_EXECUTABLES := \
     darwin/amd64/$(EXECUTABLE) \
     freebsd/amd64/$(EXECUTABLE) \
     linux/amd64/$(EXECUTABLE) \
-    linux/386/$(EXECUTABLE)
+    linux/386/$(EXECUTABLE) \
+	linux/arm/5/$(EXECUTABLE) \
+	linux/arm/7/$(EXECUTABLE)
 
 WINDOWS_EXECUTABLES := \
-    windows/amd64/$(EXECUTABLE) \
-    windows/386/$(EXECUTABLE)
+    windows/amd64/$(EXECUTABLE).exe \
+    windows/386/$(EXECUTABLE).exe
 
 COMPRESSED_EXECUTABLES=$(UNIX_EXECUTABLES:%=%.bz2) $(WIN_EXECUTABLES:%.exe=%.zip)
 COMPRESSED_EXECUTABLE_TARGETS=$(COMPRESSED_EXECUTABLES:%=bin/%)
 
-all: $(EXECUTABLE)
-
-# the executable used to perform the upload, dogfooding and all...
-bin/tmp/$(EXECUTABLE):
-	go build -o "$@"
+all: $(UNIX_EXECUTABLES:%=bin/%) $(WINDOWS_EXECUTABLES:%=bin/%) test
 
 # arm
 bin/linux/arm/5/$(EXECUTABLE):
@@ -31,7 +30,7 @@ bin/darwin/386/$(EXECUTABLE):
 	GOARCH=386 GOOS=darwin go build -o "$@"
 bin/linux/386/$(EXECUTABLE):
 	GOARCH=386 GOOS=linux go build -o "$@"
-bin/windows/386/$(EXECUTABLE):
+bin/windows/386/$(EXECUTABLE).exe:
 	GOARCH=386 GOOS=windows go build -o "$@"
 
 # amd64
@@ -50,24 +49,19 @@ bin/windows/amd64/$(EXECUTABLE).exe:
 %.zip: %.exe
 	zip "$@" "$<"
 
-$(EXECUTABLE):
-	go build -o "$@"
+test:
 	go test -v -race ./...
 
 tag:
-	VERSION=$(gen-version.sh $(RELEASE_TYPE))
-	github-tag.sh $(VERSION)
-	LAST_TAG=v$(VERSION)
-
-release: clean tag
+	git semver patch
+	
+release: clean all tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
-	git log --format=%B $(LAST_TAG) -1 | \
-		docker run release -u $(USER) -r $(EXECUTABLE) \
-			-t $(LAST_TAG) -n $(LAST_TAG) -d - || true
+	git log --format=%B $(shell git semver get) -1 | \
+		github-release release -u $(USER) -r $(EXECUTABLE) \
+			-t $(shell git semver get) -n $(shell git semver get) -d - || true
 
 clean:
-	rm go-app || true
-	rm $(EXECUTABLE) || true
-	rm -rf bin/
+	rm -rf bin/ || true
 
-.PHONY: clean release
+.PHONY: clean test tag release

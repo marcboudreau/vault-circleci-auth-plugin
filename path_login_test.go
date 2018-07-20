@@ -156,10 +156,10 @@ func TestVerifyBuild(t *testing.T) {
 					},
 				},
 			},
-			Project:     "p",
-			BuildNum:    1,
-			VCSRevision: "r",
-			ExpectError: true,
+			Project:        "p",
+			BuildNum:       1,
+			VCSRevision:    "r",
+			ExpectResponse: true,
 		},
 		{
 			Backend: &backend{
@@ -215,8 +215,8 @@ func TestVerifyBuild(t *testing.T) {
 		verifyResponse, resp, err := tc.Backend.verifyBuild(context.TODO(), tc.Req, tc.Project, tc.BuildNum, tc.VCSRevision)
 		if tc.ExpectError {
 			assert.NotNil(t, err)
-			assert.Nil(t, verifyResponse)
 			assert.Nil(t, resp)
+			assert.Nil(t, verifyResponse)
 		} else if tc.ExpectResponse {
 			assert.Nil(t, err)
 			assert.NotNil(t, resp)
