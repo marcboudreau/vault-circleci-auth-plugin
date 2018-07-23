@@ -57,7 +57,7 @@ tag:
 	
 release: tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
-	TAG=$(shell git semver get)
+	TAG := $(shell git semver get)
 	git log --format=%B $(TAG) -1 | \
 		github-release release -u $(USER) -r $(EXECUTABLE) \
 			-t $(TAG) -n $(TAG) -d - || true
