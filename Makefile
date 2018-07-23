@@ -56,7 +56,7 @@ tag:
 	git semver $(RELEASE)
 	git push --tags
 
-UPLOAD_CMD = github-release upload -u $(USER) -r $(EXECUTABLE) -t $(LAST_TAG) -n $(subst /,-,$(FILE)) -f bin/$(FILE)
+UPLOAD_CMD = github-release upload -u "$(USER)" -r "$(EXECUTABLE)" -t "$(shell git semver get)" -n "$(subst /,-,$(FILE))" -f "bin/$(FILE)"
 
 release: tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
