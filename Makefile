@@ -57,9 +57,12 @@ tag:
 	
 release: all tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
-	git log --format=%B $(shell git semver get) -1 | \
+	TAG=$(shell git semver get)
+	git log --format=%B $(TAG) -1 | \
 		github-release release -u $(USER) -r $(EXECUTABLE) \
-			-t $(shell git semver get) -n $(shell git semver get) -d - || true
+			-t $(TAG) -n $(TAG) -d - || true
+
+	$(foreach file,$(COMPRESSED_EXECUTABLES),$(shell github-release upload -u $(USER) -r $(EXECUTABLE) -t $(TAG) -n $(TAG) -f $(file)))
 
 clean:
 	rm -rf bin/ || true
