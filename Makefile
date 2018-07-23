@@ -14,8 +14,8 @@ WINDOWS_EXECUTABLES := \
     windows/amd64/$(EXECUTABLE).exe \
     windows/386/$(EXECUTABLE).exe
 
-COMPRESSED_EXECUTABLES=$(UNIX_EXECUTABLES:%=%.bz2) $(WIN_EXECUTABLES:%.exe=%.zip)
-COMPRESSED_EXECUTABLE_TARGETS=$(COMPRESSED_EXECUTABLES:%=bin/%)
+COMPRESSED_EXECUTABLES = $(UNIX_EXECUTABLES:%=%.bz2) $(WIN_EXECUTABLES:%.exe=%.zip)
+COMPRESSED_EXECUTABLE_TARGETS = $(COMPRESSED_EXECUTABLES:%=bin/%)
 
 all: $(UNIX_EXECUTABLES:%=bin/%) $(WINDOWS_EXECUTABLES:%=bin/%) test-results.txt
 
@@ -55,14 +55,14 @@ test-results.txt:
 tag:
 	git semver $(RELEASE)
 	
-release: all tag
+release: tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
 	TAG=$(shell git semver get)
 	git log --format=%B $(TAG) -1 | \
 		github-release release -u $(USER) -r $(EXECUTABLE) \
 			-t $(TAG) -n $(TAG) -d - || true
 
-	$(foreach file,$(COMPRESSED_EXECUTABLES),$(shell github-release upload -u $(USER) -r $(EXECUTABLE) -t $(TAG) -n $(TAG) -f $(file)))
+	$(foreach file,$(COMPRESSED_EXECUTABLES),github-release upload -u $(USER) -r $(EXECUTABLE) -t $(TAG) -n $(TAG) -f $(file))
 
 clean:
 	rm -rf bin/ || true
