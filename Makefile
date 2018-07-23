@@ -17,7 +17,7 @@ WINDOWS_EXECUTABLES := \
 COMPRESSED_EXECUTABLES=$(UNIX_EXECUTABLES:%=%.bz2) $(WIN_EXECUTABLES:%.exe=%.zip)
 COMPRESSED_EXECUTABLE_TARGETS=$(COMPRESSED_EXECUTABLES:%=bin/%)
 
-all: $(UNIX_EXECUTABLES:%=bin/%) $(WINDOWS_EXECUTABLES:%=bin/%) test
+all: $(UNIX_EXECUTABLES:%=bin/%) $(WINDOWS_EXECUTABLES:%=bin/%) test-results.txt
 
 # arm
 bin/linux/arm/5/$(EXECUTABLE):
@@ -49,8 +49,8 @@ bin/windows/amd64/$(EXECUTABLE).exe:
 %.zip: %.exe
 	zip "$@" "$<"
 
-test:
-	go test -v -race ./...
+test-results.txt:
+	go test -v -race ./... | tee "$@"
 
 tag:
 	git semver $(RELEASE)
@@ -64,4 +64,4 @@ release: all tag
 clean:
 	rm -rf bin/ || true
 
-.PHONY: clean test tag release
+.PHONY: clean tag release
