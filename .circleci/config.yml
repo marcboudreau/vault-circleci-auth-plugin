@@ -36,8 +36,6 @@ jobs:
               export RELEASE=${RELEASE:-patch}
               make release
 
-              git push --tags
-
               docker tag vault-circleci-auth-plugin:test marcboudreau/vault-circleci-auth-plugin:$(git semver get)
               docker tag vault-circleci-auth-plugin:test marcboudreau/vault-circleci-auth-plugin:latest
 

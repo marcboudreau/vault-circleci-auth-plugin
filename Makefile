@@ -54,14 +54,16 @@ test-results.txt:
 
 tag:
 	git semver $(RELEASE)
-	
+	git push --tags
+
+UPLOAD_CMD = github-release upload -u $(USER) -r $(EXECUTABLE) -t $(LAST_TAG) -n $(subst /,-,$(FILE)) -f bin/$(FILE)
+
 release: tag
 	$(MAKE) $(COMPRESSED_EXECUTABLE_TARGETS)
 	git log --format=%B $(shell git semver get) -1 | \
 		github-release release -u $(USER) -r $(EXECUTABLE) \
 			-t $(shell git semver get) -n $(shell git semver get) -d - || true
-
-	$(foreach file,$(COMPRESSED_EXECUTABLES),github-release upload -u $(USER) -r $(EXECUTABLE) -t $(shell git semver get) -n $(shell git semver get) -f $(file))
+	$(foreach FILE,$(COMPRESSED_EXECUTABLES),$(UPLOAD_CMD);)
 
 clean:
 	rm -rf bin/ || true
