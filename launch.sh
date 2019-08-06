@@ -16,7 +16,7 @@ sha_sum=$(sha256sum /vault/plugins/vault-circleci-auth-plugin \
         | cut -d ' ' -f 1)
 
 vault write \
-        sys/plugins/catalog/vault-circleci-auth \
+        sys/plugins/catalog/auth/vault-circleci-auth \
         sha_256=$sha_sum command=vault-circleci-auth-plugin
 
 vault auth \
