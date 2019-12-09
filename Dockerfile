@@ -17,6 +17,8 @@ COPY launch.sh /launch.sh
 
 COPY --from=build /go/src/github.com/marcboudreau/vault-circleci-auth-plugin/vault-circleci-auth-plugin /vault/plugins
 
+RUN setcap cap_ipc_lock=+ep $(readlink -f /vault/plugins/vault-circleci-auth-plugin)
+
 RUN chown vault:vault /vault/plugins/vault-circleci-auth-plugin
 
 CMD [ "/launch.sh" ]

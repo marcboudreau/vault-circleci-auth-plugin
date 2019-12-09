@@ -1,8 +1,11 @@
 #!/bin/sh
 
+set -e
+
 echo '{"plugin_directory": "/vault/plugins/"}' > /vault/config/local.json
 
 docker-entrypoint.sh \
+        vault \
         server \
         -dev \
         -dev-root-token-id=$VAULT_TOKEN \
@@ -11,6 +14,10 @@ docker-entrypoint.sh \
 pid=$!
 
 cat /vault/config/local.json
+
+while ! vault status; do
+	sleep 1
+done
 
 sha_sum=$(sha256sum /vault/plugins/vault-circleci-auth-plugin \
         | cut -d ' ' -f 1)
